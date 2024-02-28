@@ -17,8 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"github.com/zncdata-labs/secret-operator/internal/controller"
+	"github.com/zncdata-labs/secret-operator/internal/controller/csi"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -32,13 +36,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	secretv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme     = runtime.NewScheme()
+	setupLog   = ctrl.Log.WithName("setup")
+	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	nodeID     = flag.String("nodeid", "", "node id")
+	driverName = flag.String("drivername", csi.DefaultDriverName, "name of the driver")
+
+	metricsAddr          = flag.String("metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	probeAddr            = flag.String("health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	enableLeaderElection = flag.Bool("leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.",
+	)
 )
 
 func init() {
@@ -49,26 +62,23 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+
 	opts := zap.Options{
 		Development: true,
 	}
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: *metricsAddr,
+		},
+		HealthProbeBindAddress: *probeAddr,
+		LeaderElection:         *enableLeaderElection,
 		LeaderElectionID:       "8b74b19a.zncdata.dev",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -96,6 +106,15 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
+	addChecker(mgr)
+
+	ctx := ctrl.SetupSignalHandler()
+
+	//go runMgr(ctx, mgr)
+	runDriver(ctx, mgr)
+}
+
+func addChecker(mgr ctrl.Manager) {
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -104,10 +123,22 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+}
 
+func runMgr(ctx context.Context, mgr ctrl.Manager) {
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func runDriver(ctx context.Context, mgr ctrl.Manager) {
+	setupLog.Info("starting driver", "driver", *driverName)
+	driver := csi.NewDriver(*driverName, *nodeID, *endpoint, mgr.GetClient())
+
+	err := driver.Run(ctx, false)
+	if err != nil {
 		os.Exit(1)
 	}
 }
