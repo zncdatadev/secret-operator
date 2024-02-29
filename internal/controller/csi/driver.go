@@ -2,6 +2,8 @@ package csi
 
 import (
 	"context"
+	"errors"
+
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,6 +29,7 @@ func NewDriver(
 	client client.Client,
 ) *Driver {
 	srv := NewNonBlockingServer()
+
 	return &Driver{
 		name:     name,
 		nodeID:   nodeID,
@@ -46,6 +49,11 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 	}
 	log.V(2).Info("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
+	// check node id
+	if d.nodeID == "" {
+		return errors.New("NodeID is not provided")
+	}
+
 	ns := NewNodeServer(
 		d.nodeID,
 		mount.New(""),
@@ -64,6 +72,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 	}()
 
 	d.server.Wait()
+	log.Info("Server stopped")
 	return nil
 }
 

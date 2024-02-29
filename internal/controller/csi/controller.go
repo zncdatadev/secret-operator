@@ -2,7 +2,9 @@ package csi
 
 import (
 	"context"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -17,11 +19,22 @@ func NewControllerServer() *ControllerServer {
 }
 
 func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	log.Info("CreateVolume called...")
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &csi.CreateVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId: id.String(),
+		},
+	}, nil
+
 }
 
 func (c ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	log.Info("DeleteVolume called...")
+	return &csi.DeleteVolumeResponse{}, nil
 }
 
 func (c ControllerServer) ControllerPublishVolume(ctx context.Context, request *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
