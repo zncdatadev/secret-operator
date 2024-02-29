@@ -1,4 +1,4 @@
-package csi
+package version
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 
 // These are set during build time via -ldflags
 var (
-	driverVersion = "N/A"
-	gitCommit     = "N/A"
-	buildDate     = "N/A"
+	BuildVersion = "N/A"
+	GitCommit    = "N/A"
+	BuildTime    = "N/A"
 )
 
 // VersionInfo holds the version information of the driver
@@ -20,7 +20,7 @@ type VersionInfo struct {
 	DriverName    string `json:"Driver Name"`
 	DriverVersion string `json:"Driver Version"`
 	GitCommit     string `json:"Git Commit"`
-	BuildDate     string `json:"Build Date"`
+	BuildTime     string `json:"Build Time"`
 	GoVersion     string `json:"Go Version"`
 	Compiler      string `json:"Compiler"`
 	Platform      string `json:"Platform"`
@@ -30,9 +30,9 @@ type VersionInfo struct {
 func GetVersion(driverName string) VersionInfo {
 	return VersionInfo{
 		DriverName:    driverName,
-		DriverVersion: driverVersion,
-		GitCommit:     gitCommit,
-		BuildDate:     buildDate,
+		DriverVersion: BuildVersion,
+		GitCommit:     GitCommit,
+		BuildTime:     BuildTime,
 		GoVersion:     runtime.Version(),
 		Compiler:      runtime.Compiler,
 		Platform:      fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),

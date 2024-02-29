@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/zncdata-labs/secret-operator/internal/controller/version"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,7 +42,7 @@ func NewDriver(
 
 func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
-	versionMeta, err := GetVersionYAML(d.name)
+	versionMeta, err := version.GetVersionYAML(d.name)
 
 	if err != nil {
 		log.Error(err, "Failed to get driver information")
@@ -60,7 +61,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 		d.client,
 	)
 
-	is := NewIdentityServer(d.name, driverVersion)
+	is := NewIdentityServer(d.name, version.BuildVersion)
 	cs := NewControllerServer()
 
 	d.server.Start(d.endpoint, is, cs, ns, testMode)

@@ -19,9 +19,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
+
 	"github.com/zncdata-labs/secret-operator/internal/controller"
 	"github.com/zncdata-labs/secret-operator/internal/controller/csi"
-	"os"
+	"github.com/zncdata-labs/secret-operator/internal/controller/version"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -52,6 +55,7 @@ var (
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.",
 	)
+	versionInfo = flag.Bool("version", false, "Prints the version information")
 )
 
 func init() {
@@ -69,6 +73,10 @@ func main() {
 
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if *versionInfo {
+		showVersion()
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -141,4 +149,15 @@ func runDriver(ctx context.Context, mgr ctrl.Manager) {
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+func showVersion() {
+
+	info, err := version.GetVersionYAML(*driverName)
+	if err != nil {
+		fmt.Println("Failed to get driver information")
+		os.Exit(1)
+	}
+	fmt.Println(info)
+	os.Exit(0)
 }

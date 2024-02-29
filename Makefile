@@ -1,3 +1,16 @@
+
+ORG_PATH=github.com/zncdata-labs
+PROJECT_NAME := secret-operator
+BUILD_COMMIT := $(shell git rev-parse --short HEAD)
+REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
+
+# build variables
+BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
+BUILD_TIME_VAR := $(REPO_PATH)/internal/controller/version.BuildTime
+GIT_COMMIT_VAR := $(REPO_PATH)/internal/controller/version.GitCommit
+BUILD_VERSION_VAR := $(REPO_PATH)/internal/controller/version.BuildVersion
+LDFLAGS ?= "-X $(BUILD_TIME_VAR)=$(BUILD_TIMESTAMP) -X $(GIT_COMMIT_VAR)=$(BUILD_COMMIT) -X $(BUILD_VERSION_VAR)=$(VERSION)"
+
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
@@ -125,7 +138,7 @@ sanity-test: ## Run sanity tests.
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/operator/main.go
+	go build -a -ldflags $(LDFLAGS) -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
