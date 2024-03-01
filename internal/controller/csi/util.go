@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
-	"regexp"
 	"strings"
 )
 
@@ -41,8 +40,4 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 		log.V(level).Info("GRPC response: %s", protosanitizer.StripSecrets(resp))
 	}
 	return resp, err
-}
-
-func CheckDynamicPV(name string) (bool, error) {
-	return regexp.Match("pvc-\\w{8}(-\\w{4}){3}-\\w{12}", []byte(name))
 }
