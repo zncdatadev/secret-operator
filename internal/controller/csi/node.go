@@ -35,22 +35,26 @@ func NewNodeServer(
 }
 
 func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	//startTime := time.Now()
 
-	var targetPath string
+	log.V(1).Info("NodePublishVolume called...")
 
 	if request.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
 	}
-	if request.GetVolumeId() == "" {
+	if len(request.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
-	if request.GetTargetPath() == "" {
+	if len(request.GetTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
 	if request.GetVolumeContext() == nil || len(request.GetVolumeContext()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume context missing in request")
 	}
+
+	//startTime := time.Now()
+
+	var targetPath string
+
 	//
 	targetPath = request.GetTargetPath()
 	attrib := request.GetVolumeContext()
@@ -72,9 +76,6 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 	if err := os.WriteFile(filepath.Join(targetPath, "hello.txt"), []byte("Hello, world!"), fs.FileMode(0644)); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-
-	log.Info("NodePublishVolume called...")
-
 	return &csi.NodePublishVolumeResponse{}, nil
 
 }
@@ -109,11 +110,33 @@ func (n NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeUn
 }
 
 func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	if len(request.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	if len(request.GetStagingTargetPath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Staging target path missing in request")
+
+	}
+
+	if request.GetVolumeCapability() == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
+
+	return &csi.NodeStageVolumeResponse{}, nil
 }
 
 func (n NodeServer) NodeUnstageVolume(ctx context.Context, request *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	if len(request.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	if len(request.GetStagingTargetPath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Staging target path missing in request")
+
+	}
+
+	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
 func (n NodeServer) NodeGetVolumeStats(ctx context.Context, request *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
@@ -125,31 +148,31 @@ func (n NodeServer) NodeExpandVolume(ctx context.Context, request *csi.NodeExpan
 }
 
 func (n NodeServer) NodeGetCapabilities(ctx context.Context, request *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	// newCapabilities := func(cap csi.NodeServiceCapability_RPC_Type) *csi.NodeServiceCapability {
-	// 	return &csi.NodeServiceCapability{
-	// 		Type: &csi.NodeServiceCapability_Rpc{
-	// 			Rpc: &csi.NodeServiceCapability_RPC{
-	// 				Type: cap,
-	// 			},
-	// 		},
-	// 	}
-	// }
-
-	// var capabilities []*csi.NodeServiceCapability
-
-	// for _, capability := range []csi.NodeServiceCapability_RPC_Type{
-	// 	csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
-	// } {
-	// 	capabilities = append(capabilities, newCapabilities(capability))
-	// }
-
-	// resp := &csi.NodeGetCapabilitiesResponse{
-	// 	Capabilities: capabilities,
-	// }
-
 	log.Info("NodeGetCapabilities called...")
+	newCapabilities := func(cap csi.NodeServiceCapability_RPC_Type) *csi.NodeServiceCapability {
+		return &csi.NodeServiceCapability{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: cap,
+				},
+			},
+		}
+	}
 
-	return &csi.NodeGetCapabilitiesResponse{}, nil
+	var capabilities []*csi.NodeServiceCapability
+
+	for _, capability := range []csi.NodeServiceCapability_RPC_Type{
+		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+	} {
+		capabilities = append(capabilities, newCapabilities(capability))
+	}
+
+	resp := &csi.NodeGetCapabilitiesResponse{
+		Capabilities: capabilities,
+	}
+
+	return resp, nil
+
 }
 
 func (n NodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
