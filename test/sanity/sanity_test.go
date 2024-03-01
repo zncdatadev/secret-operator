@@ -17,7 +17,11 @@ const (
 	endpoint  = "unix://" + socket
 )
 
-var driver *csi.Driver
+var (
+	driver *csi.Driver
+	cancel context.CancelFunc
+	ctx    context.Context
+)
 
 func TestSanity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -25,6 +29,7 @@ func TestSanity(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	ctx, cancel = context.WithCancel(context.Background())
 	driver = csi.NewDriver(
 		csi.DefaultDriverName,
 		"test-node",
@@ -32,11 +37,12 @@ var _ = BeforeSuite(func() {
 		nil,
 	)
 	go func() {
-		Expect(driver.Run(context.Background(), true)).NotTo(HaveOccurred())
+		Expect(driver.Run(ctx, true)).NotTo(HaveOccurred())
 	}()
 })
 
 var _ = AfterSuite(func() {
+	cancel()
 	driver.Stop()
 	Expect(os.RemoveAll(socket)).NotTo(HaveOccurred())
 	Expect(os.RemoveAll(mountPath)).NotTo(HaveOccurred())

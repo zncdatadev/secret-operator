@@ -132,7 +132,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: sanity-test
 sanity-test: ## Run sanity tests.
-	go test -v ./test/sanity -ginkgo.skip=Controller\|should.work\|NodeStageVolume
+	go test -v ./test/sanity/...
 
 ##@ Build
 
