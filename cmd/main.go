@@ -133,13 +133,13 @@ func addChecker(mgr ctrl.Manager) {
 	}
 }
 
-func runMgr(ctx context.Context, mgr ctrl.Manager) {
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
-}
+//func runMgr(ctx context.Context, mgr ctrl.Manager) {
+//	setupLog.Info("starting manager")
+//	if err := mgr.Start(ctx); err != nil {
+//		setupLog.Error(err, "problem running manager")
+//		os.Exit(1)
+//	}
+//}
 
 func runDriver(ctx context.Context, mgr ctrl.Manager) {
 	setupLog.Info("starting driver", "driver", *driverName)

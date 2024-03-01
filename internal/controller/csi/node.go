@@ -53,10 +53,7 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 
 	//startTime := time.Now()
 
-	var targetPath string
-
-	//
-	targetPath = request.GetTargetPath()
+	targetPath := request.GetTargetPath()
 	attrib := request.GetVolumeContext()
 	//parameters = request.GetVolumeContext()
 	mountFlags := request.GetVolumeCapability().GetMount().GetMountFlags()
