@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultDriverName = "secret.csi.zncdata.dev"
+	DefaultDriverName = "secret.zncdata.dev"
 )
 
 type Driver struct {
