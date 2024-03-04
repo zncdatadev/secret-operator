@@ -50,22 +50,15 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 		return nil, status.Error(codes.InvalidArgument, "Volume context missing in request")
 	}
 
-	//startTime := time.Now()
-
 	targetPath := request.GetTargetPath()
-	attrib := request.GetVolumeContext()
-	//parameters = request.GetVolumeContext()
-	mountFlags := request.GetVolumeCapability().GetMount().GetMountFlags()
-	//secrets := request.GetSecrets()
 
-	// create the target path if it doesn't exist
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(targetPath, 0750); err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 	}
 
-	if err := n.mounter.Mount(attrib["source"], targetPath, "", mountFlags); err != nil {
+	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{}); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
