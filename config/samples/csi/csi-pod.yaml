@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: csi-pod
+  labels:
+    name: csi-pod
+spec:
+  containers:
+  - name: csi-pod
+    image: docker-test.zncdata.net/huagang/secret-operator@sha256:36a0d416c2d54589c006989d71f1593493b980b0385bcef6de3e2d91a49d594b
+    imagePullPolicy: Always
+    args:
+    - -endpoint=unix:///tmp/csi.sock
+    - -nodeid=$(NODE_NAME)
+    - -zap-log-level=10
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
