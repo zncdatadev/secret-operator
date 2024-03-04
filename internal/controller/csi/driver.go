@@ -48,7 +48,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 		log.Error(err, "Failed to get driver information")
 		return err
 	}
-	log.V(2).Info("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
+	log.V(1).Info("\nDRIVER INFORMATION:\n-------------------\n\nStreaming logs below:", "versionMeta", versionMeta)
 
 	// check node id
 	if d.nodeID == "" {
