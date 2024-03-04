@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    name: nginx-pod
+spec:
+  containers:
+  - name: nginx-pod
+    image: caddy:2.7.6
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: foo
+      mountPath: /opt/foo
+  volumes:
+  - name: foo
+    ephemeral:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: "zncdata"
+          resources:
+            requests:
+              storage: 1Gi

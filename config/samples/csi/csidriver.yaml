@@ -1,0 +1,10 @@
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: secret.zncdata.dev
+spec:
+  podInfoOnMount: true
+  attachRequired: false
+  volumeLifecycleModes:
+  - Ephemeral
+  - Persistent

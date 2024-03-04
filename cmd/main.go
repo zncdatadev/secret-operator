@@ -147,6 +147,7 @@ func runDriver(ctx context.Context, mgr ctrl.Manager) {
 
 	err := driver.Run(ctx, false)
 	if err != nil {
+		fmt.Println("Failed to run driver", "error", err.Error())
 		os.Exit(1)
 	}
 }

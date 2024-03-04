@@ -1,0 +1,87 @@
+# daemonsets
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: zds-secret-operator
+spec:
+  selector:
+    matchLabels:
+      app: zds-secret-operator
+  template:
+    metadata:
+      labels:
+        app: zds-secret-operator
+    spec:
+      serviceAccountName: zds-operator
+      containers:
+      - name: secret-operator
+        image: docker.io/huagang/secret-operator:0.0.1
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        args:
+        - "-endpoint=unix:///csi/csi.sock"
+        - "-nodeid=$(NODE_NAME)"
+        volumeMounts:
+        - name: plugin-dir
+          mountPath: /csi
+        - name: mountpoint-dir
+          mountPath: /var/lib/kubelet/pods
+          mountPropagation: Bidirectional
+      - name: node-driver-registrar
+        image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.8.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - --csi-address=/csi/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/secret.zncdata.dev/csi.sock
+        livenessProbe:
+          exec:
+            command:
+            - /csi-node-driver-registrar
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/secret.zncdata.dev/csi.sock
+            - --mode=kubelet-registration-probe
+          initialDelaySeconds: 30
+          timeoutSeconds: 15
+        volumeMounts:
+        - name: plugin-dir
+          mountPath: /csi
+        - name: registration-dir
+          mountPath: /registration
+      - name: csi-provisioner
+        image: registry.k8s.io/sig-storage/csi-provisioner:v3.5.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - --csi-address=/csi/csi.sock
+        - --v=5
+        volumeMounts:
+        - name: plugin-dir
+          mountPath: /csi
+      - name: liveness-probe
+        image: registry.k8s.io/sig-storage/livenessprobe:v2.11.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - --csi-address=unix:///csi/csi.sock
+        - --probe-timeout=5s
+        - --http-endpoint=0.0.0.0:9808
+        volumeMounts:
+        - name: plugin-dir
+          mountPath: /csi
+      volumes:
+      - name: mountpoint-dir
+        hostPath:
+          path: /var/lib/kubelet/pods
+          type: DirectoryOrCreate
+      - name: plugin-dir
+        hostPath:
+          path: /var/lib/kubelet/plugins/secret.zncdata.dev/
+          type: DirectoryOrCreate
+      - name: registration-dir
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry/
+          type: DirectoryOrCreate
