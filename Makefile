@@ -6,9 +6,9 @@ REPO_PATH=$(ORG_PATH)/$(PROJECT_NAME)
 
 # build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
-BUILD_TIME_VAR := $(REPO_PATH)/internal/controller/version.BuildTime
-GIT_COMMIT_VAR := $(REPO_PATH)/internal/controller/version.GitCommit
-BUILD_VERSION_VAR := $(REPO_PATH)/internal/controller/version.BuildVersion
+BUILD_TIME_VAR := $(REPO_PATH)/internal/csi/version.BuildTime
+GIT_COMMIT_VAR := $(REPO_PATH)/internal/csi/version.GitCommit
+BUILD_VERSION_VAR := $(REPO_PATH)/internal/csi/version.BuildVersion
 LDFLAGS ?= "-X $(BUILD_TIME_VAR)=$(BUILD_TIMESTAMP) -X $(GIT_COMMIT_VAR)=$(BUILD_COMMIT) -X $(BUILD_VERSION_VAR)=$(VERSION)"
 
 # VERSION defines the project version for the bundle.
