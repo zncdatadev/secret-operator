@@ -304,3 +304,36 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+
+# kind
+KIND_VERSION ?= v0.22.0
+
+.PHONY: kind
+KIND = $(LOCALBIN)/kind
+kind: ## Download kind locally if necessary.
+ifeq (,$(shell which $(KIND)))
+ifeq (,$(shell which kind 2>/dev/null))
+	@{ \
+	set -e ;\
+	go install sigs.k8s.io/kind@$(KIND_VERSION) ;\
+	}
+KIND = $(GOBIN)/bin/kind
+else
+KIND = $(shell which kind)
+endif
+endif
+
+OLM_VERSION ?= v0.27.0
+
+# Create a kind cluster, install ingress-nginx, and wait for it to be available.
+.PHONY: kind-create
+kind-create: kind ## Create a kind cluster.
+	$(KIND) create cluster --config test/e2e/kind.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	kubectl -n ingress-nginx wait deployment ingress-nginx-controller --for=condition=available --timeout=300s
+	curl -sSL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/$(OLM_VERSION)/install.sh | bash -s $(OLM_VERSION)
+
+.PHONY: kind-delete
+kind-delete: kind ## Delete a kind cluster.
+	$(KIND) delete cluster
