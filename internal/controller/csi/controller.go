@@ -36,9 +36,6 @@ func NewControllerServer() *ControllerServer {
 }
 
 func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-
-	log.Info("CreateVolume called...")
-
 	if request.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume Name is required")
 	}
@@ -64,6 +61,10 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 		log.Info("Finalizer is true")
 	}
 
+	// pvName := request.Parameters["csi.storage.k8s.io/pv/name"]
+	// pvcName := request.Parameters["csi.storage.k8s.io/pvc/name"]
+	// pvcNameSpace := request.Parameters["csi.storage.k8s.io/pvc/namespace"]
+
 	c.volumes[request.Name] = requiredCap
 
 	return &csi.CreateVolumeResponse{
@@ -72,11 +73,9 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 			CapacityBytes: requiredCap,
 		},
 	}, nil
-
 }
 
 func (c ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	log.Info("DeleteVolume called...")
 	volumeID := request.GetVolumeId()
 	if volumeID == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID is required")
@@ -128,7 +127,24 @@ func (c ControllerServer) ValidateVolumeCapabilities(ctx context.Context, reques
 }
 
 func (c ControllerServer) ListVolumes(ctx context.Context, request *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	// impl list volumes
+	var entries []*csi.ListVolumesResponse_Entry
+	for volumeID, size := range c.volumes {
+		entries = append(entries, &csi.ListVolumesResponse_Entry{
+			Volume: &csi.Volume{
+				VolumeId:           volumeID,
+				CapacityBytes:      size,
+				VolumeContext:      nil,
+				ContentSource:      nil,
+				AccessibleTopology: nil,
+			},
+		})
+	}
+
+	return &csi.ListVolumesResponse{
+		Entries: entries,
+	}, nil
+
 }
 
 func (c ControllerServer) GetCapacity(ctx context.Context, request *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
@@ -136,7 +152,6 @@ func (c ControllerServer) GetCapacity(ctx context.Context, request *csi.GetCapac
 }
 
 func (c ControllerServer) ControllerGetCapabilities(ctx context.Context, request *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
-	log.Info("Using default ControllerGetCapabilities")
 
 	return &csi.ControllerGetCapabilitiesResponse{
 		Capabilities: []*csi.ControllerServiceCapability{

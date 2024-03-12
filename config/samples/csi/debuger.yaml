@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debuger
+  labels:
+    name: debuger
+spec:
+  containers:
+  - name: debuger
+    image: golang:1.21-bookworm
+    # resources:
+    #   limits:
+    #     memory: "2Gi"
+    #     cpu: "4m"
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    command:
+    - tail
+    - -f
+    - /dev/null
+    volumeMounts:
+    - name: plugin-dir
+      mountPath: /csi
+    - name: mountpoint-dir
+      mountPath: /var/lib/kubelet/pods
+      mountPropagation: Bidirectional
+    - name: workspace-dir
+      mountPath: /workspace
+  volumes:
+  - name: plugin-dir
+    hostPath:
+      path: /var/lib/kubelet/plugins/secret.zncdata.dev
+      type: DirectoryOrCreate
+  - name: mountpoint-dir
+    hostPath:
+      path: /var/lib/kubelet/pods
+      type: DirectoryOrCreate
+  - name: workspace-dir
+    hostPath:
+      path: /workspace

@@ -3,9 +3,10 @@ package csi
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
-	"strings"
 )
 
 func ParseEndpoint(ep string) (string, string, error) {
@@ -29,15 +30,13 @@ func getLogLevel(method string) int {
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	level := getLogLevel(info.FullMethod)
-	log.V(level).Info("GRPC call: %s", info.FullMethod)
-	log.V(level).Info("GRPC request: %s", protosanitizer.StripSecrets(req))
+	log.V(level).Info("GRPC calling", "method", info.FullMethod, "request", protosanitizer.StripSecrets(req))
 
 	resp, err := handler(ctx, req)
 	if err != nil {
-		log.Error(err, "GRPC error")
+		log.Error(err, "GRPC called error", "method", info.FullMethod)
 	} else {
-		//klog.V(level).Infof("GRPC response: %s", protosanitizer.StripSecrets(resp))
-		log.V(level).Info("GRPC response: %s", protosanitizer.StripSecrets(resp))
+		log.V(level).Info("GRPC called", "method", info.FullMethod, "response", protosanitizer.StripSecrets(resp))
 	}
 	return resp, err
 }

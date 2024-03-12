@@ -5,9 +5,13 @@ metadata:
   labels:
     name: nginx-pod
 spec:
+  serviceAccountName: zds-operator
   containers:
   - name: nginx-pod
-    image: caddy:2.7.6
+    image: nginx
+    securityContext:
+      privileged: true
+      runAsUser: 0
     resources:
       limits:
         memory: "128Mi"
@@ -17,13 +21,18 @@ spec:
     volumeMounts:
     - name: foo
       mountPath: /opt/foo
+      mountPropagation: Bidirectional
   volumes:
   - name: foo
     ephemeral:
       volumeClaimTemplate:
+        metadata:
+          annotations:
+            secret.zncdata.dev/class: zncdata
+            test.zncdata.dev/foo: bar
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: "zncdata"
           resources:
             requests:
-              storage: 1Gi
+              storage: 1Mi

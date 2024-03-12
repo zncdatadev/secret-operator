@@ -42,13 +42,7 @@ func NewDriver(
 
 func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
-	versionMeta, err := version.GetVersionYAML(d.name)
-
-	if err != nil {
-		log.Error(err, "Failed to get driver information")
-		return err
-	}
-	log.V(1).Info("\nDRIVER INFORMATION:\n-------------------\n\nStreaming logs below:", "versionMeta", versionMeta)
+	log.V(1).Info("Driver information", "versionInfo", version.GetVersion(d.name))
 
 	// check node id
 	if d.nodeID == "" {

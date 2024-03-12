@@ -25,7 +25,6 @@ func NewIdentityServer(name, version string) *IdentityServer {
 }
 
 func (i IdentityServer) GetPluginInfo(ctx context.Context, request *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	log.Info("GetPluginInfo called...")
 	if i.name == "" {
 		return nil, status.Error(codes.Unavailable, "driver name not configured")
 	}
@@ -41,7 +40,6 @@ func (i IdentityServer) GetPluginInfo(ctx context.Context, request *csi.GetPlugi
 }
 
 func (i IdentityServer) GetPluginCapabilities(ctx context.Context, request *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	log.Info("using default plugin capabilities in identity server")
 
 	return &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
