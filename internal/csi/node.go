@@ -35,22 +35,16 @@ func NewNodeServer(
 }
 
 func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	volumeCapabilities := request.GetVolumeCapability()
-	if volumeCapabilities == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	if err := n.validateNodePublishVolumeRequest(request); err != nil {
+		return nil, err
 	}
-	if len(request.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
+
 	targetPath := request.GetTargetPath()
 
-	if len(targetPath) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
-	}
+	// volumeCtxMap := request.GetVolumeContext()
 
-	if request.GetVolumeContext() == nil || len(request.GetVolumeContext()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume context missing in request")
-	}
+	// secretVolRefer is a helper to get the secret reference
+	// volumeCtx := NewVolumeContextFromMap(volumeCtxMap)
 
 	if err := n.mount(targetPath); err != nil {
 		return nil, err
@@ -60,7 +54,23 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &csi.NodePublishVolumeResponse{}, nil
+}
 
+func (n NodeServer) validateNodePublishVolumeRequest(request *csi.NodePublishVolumeRequest) error {
+	if request.GetVolumeId() == "" {
+		return status.Error(codes.InvalidArgument, "volume ID missing in request")
+	}
+	if request.GetTargetPath() == "" {
+		return status.Error(codes.InvalidArgument, "Target path missing in request")
+	}
+	if request.GetVolumeCapability() == nil {
+		return status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
+
+	if request.GetVolumeContext() == nil || len(request.GetVolumeContext()) == 0 {
+		return status.Error(codes.InvalidArgument, "Volume context missing in request")
+	}
+	return nil
 }
 
 func (n NodeServer) mount(targetPath string) error {
