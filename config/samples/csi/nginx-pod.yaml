@@ -28,7 +28,7 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secret.zncdata.dev/class: zncdata
+            secrets.zncdata.dev/class: zncdata
             test.zncdata.dev/foo: bar
         spec:
           accessModes: ["ReadWriteOnce"]

@@ -30,7 +30,7 @@ spec:
   volumes:
   - name: plugin-dir
     hostPath:
-      path: /var/lib/kubelet/plugins/secret.zncdata.dev
+      path: /var/lib/kubelet/plugins/secrets.zncdata.dev
       type: DirectoryOrCreate
   - name: mountpoint-dir
     hostPath:

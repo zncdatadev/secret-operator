@@ -40,12 +40,12 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --csi-address=/csi/csi.sock
-        - --kubelet-registration-path=/var/lib/kubelet/plugins/secret.zncdata.dev/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/secrets.zncdata.dev/csi.sock
         livenessProbe:
           exec:
             command:
             - /csi-node-driver-registrar
-            - --kubelet-registration-path=/var/lib/kubelet/plugins/secret.zncdata.dev/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/secrets.zncdata.dev/csi.sock
             - --mode=kubelet-registration-probe
           initialDelaySeconds: 30
           timeoutSeconds: 15
@@ -82,7 +82,7 @@ spec:
           type: DirectoryOrCreate
       - name: plugin-dir
         hostPath:
-          path: /var/lib/kubelet/plugins/secret.zncdata.dev/
+          path: /var/lib/kubelet/plugins/secrets.zncdata.dev/
           type: DirectoryOrCreate
       - name: registration-dir
         hostPath:

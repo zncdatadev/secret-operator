@@ -5,6 +5,6 @@ metadata:
   labels:
     zncdata.dev/vendor: zncdata-labs
     zncdata.dev/kind: storageclass
-provisioner: secret.zncdata.dev
+provisioner: secrets.zncdata.dev
 parameters:
   foo: bar
