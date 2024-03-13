@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - secrets.zncdata.dev
+  resources:
+  - secretclasses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - secrets.zncdata.dev
+  resources:
+  - secretclasses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - secrets.zncdata.dev
+  resources:
+  - secretclasses/status
+  verbs:
+  - get
+  - patch
+  - update

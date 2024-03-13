@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	secretv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
+	secretvs1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	"github.com/zncdata-labs/secret-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(secretv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(secretvs1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

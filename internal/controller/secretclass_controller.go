@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	secretv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
+	secretvs1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 )
 
 // SecretClassReconciler reconciles a SecretClass object
@@ -33,9 +33,9 @@ type SecretClassReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=secret.zncdata.dev,resources=secretclasses,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=secret.zncdata.dev,resources=secretclasses/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=secret.zncdata.dev,resources=secretclasses/finalizers,verbs=update
+//+kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretclasses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretclasses/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretclasses/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -57,6 +57,6 @@ func (r *SecretClassReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecretClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&secretv1alpha1.SecretClass{}).
+		For(&secretvs1alpha1.SecretClass{}).
 		Complete(r)
 }
