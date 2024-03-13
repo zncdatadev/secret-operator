@@ -52,19 +52,8 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 		return nil, status.Error(codes.InvalidArgument, "Volume context missing in request")
 	}
 
-	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(targetPath, 0750); err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-	opts := []string{
-		// "noexec",
-		// "nosuid",
-		// "nodev",
-	}
-
-	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", opts); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	if err := n.mount(targetPath); err != nil {
+		return nil, err
 	}
 
 	if err := os.WriteFile(filepath.Join(targetPath, "hello.txt"), []byte("Hello, world!"), fs.FileMode(0644)); err != nil {
@@ -72,6 +61,34 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 	}
 	return &csi.NodePublishVolumeResponse{}, nil
 
+}
+
+func (n NodeServer) mount(targetPath string) error {
+	// check if the target path exists
+	// if not, create the target path
+	// if exists, return error
+	if exist, err := mount.PathExists(targetPath); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	} else if exist {
+		return status.Error(codes.Internal, "target path already exists")
+	} else {
+		if err := os.MkdirAll(targetPath, 0750); err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
+	}
+
+	opts := []string{
+		"noexec",
+		"nosuid",
+		"nodev",
+	}
+
+	// mount the volume to the target path
+	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", opts); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	return nil
 }
 
 // NodeUnpublishVolume unpublishes the volume from the node.

@@ -2,11 +2,19 @@ package csi
 
 import (
 	"context"
+	"errors"
 	"regexp"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	SECRET_CLASS_ANNOTATION_NAME = "secrets.zncdata.dev/class"
+	SECRET_SCOPE_ANNOTATION_NAME = "secrets.zncdata.dev/scope"
 )
 
 var (
@@ -24,13 +32,21 @@ var (
 )
 
 type ControllerServer struct {
+	client  client.Client
 	volumes map[string]int64
+}
+
+// SecretClassInfo is the struct for secret class info in PVC annotations
+type SecretClassInfo struct {
+	Name  string `json:"secretClassName"`
+	Scope string `json:"scope"`
 }
 
 var _ csi.ControllerServer = &ControllerServer{}
 
-func NewControllerServer() *ControllerServer {
+func NewControllerServer(client client.Client) *ControllerServer {
 	return &ControllerServer{
+		client:  client,
 		volumes: map[string]int64{},
 	}
 }
@@ -60,10 +76,36 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 	if request.Parameters["secretFinalizer"] == "true" {
 		log.Info("Finalizer is true")
 	}
+	// ref: https://github.com/kubernetes-csi/external-provisioner?tab=readme-ov-file#command-line-options
+	pvcName, exists := request.Parameters["csi.storage.k8s.io/pvc/name"]
+	if !exists {
+		return nil, status.Error(codes.InvalidArgument, "Can not found 'csi.storage.k8s.io/pvc/name' in parameters, "+
+			"please ensure added '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container.")
+	}
 
-	// pvName := request.Parameters["csi.storage.k8s.io/pv/name"]
-	// pvcName := request.Parameters["csi.storage.k8s.io/pvc/name"]
-	// pvcNameSpace := request.Parameters["csi.storage.k8s.io/pvc/namespace"]
+	pvcNameSpace, exists := request.Parameters["csi.storage.k8s.io/pvc/namespace"]
+	if !exists {
+		return nil, status.Error(codes.InvalidArgument, "Can not found 'csi.storage.k8s.io/pvc/namespace' in parameters, "+
+			"please ensure added '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container.")
+	}
+
+	pvc, err := c.getPvc(pvcName, pvcNameSpace)
+
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "PVC: %q, Namespace: %q", pvcName, pvcNameSpace)
+	}
+
+	secretClassInfo, err := c.getSecretClassInfo(pvc)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Get secret class info error: %v", err)
+	}
+
+	volCtx := map[string]string{}
+
+	if secretClassInfo != nil {
+		volCtx["secretClassName"] = secretClassInfo.Name
+		volCtx["secretScope"] = secretClassInfo.Scope
+	}
 
 	c.volumes[request.Name] = requiredCap
 
@@ -71,7 +113,45 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 		Volume: &csi.Volume{
 			VolumeId:      request.GetName(),
 			CapacityBytes: requiredCap,
+			VolumeContext: volCtx,
 		},
+	}, nil
+}
+
+func (c ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVolumeClaim, error) {
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := c.client.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, pvc)
+	if err != nil {
+		return nil, err
+	}
+
+	return pvc, nil
+}
+
+func (c ControllerServer) getSecretClassInfo(pvc *corev1.PersistentVolumeClaim) (*SecretClassInfo, error) {
+
+	annotations := pvc.GetAnnotations()
+	if annotations == nil {
+		return nil, errors.New("PVC annotations is nil")
+	}
+
+	secretClassName, ok := annotations[SECRET_SCOPE_ANNOTATION_NAME]
+	if !ok {
+		return nil, errors.New("can not found '" + SECRET_CLASS_ANNOTATION_NAME + "' annotation in PVC")
+	}
+
+	secretScope, ok := annotations[SECRET_SCOPE_ANNOTATION_NAME]
+	if !ok {
+		return nil, errors.New("can not found '" + SECRET_SCOPE_ANNOTATION_NAME + "' annotation in PVC")
+	}
+
+	return &SecretClassInfo{
+		Name:  secretClassName,
+		Scope: secretScope,
 	}, nil
 }
 

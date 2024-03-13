@@ -56,7 +56,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 	)
 
 	is := NewIdentityServer(d.name, version.BuildVersion)
-	cs := NewControllerServer()
+	cs := NewControllerServer(d.client)
 
 	d.server.Start(d.endpoint, is, cs, ns, testMode)
 
