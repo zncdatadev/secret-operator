@@ -20,4 +20,13 @@ resources:
   kind: SecretClass
   path: github.com/zncdata-labs/secret-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: zncdata.dev
+  group: secrets
+  kind: SecretCSI
+  path: github.com/zncdata-labs/secret-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
