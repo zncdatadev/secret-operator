@@ -1,7 +1,10 @@
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
-  name: secret.zncdata.dev
+  name: secrets.zncdata.dev
+  labels:
+    zncdata.dev/vendor: zncdata-labs
+    zncdata.dev/kind: csidriver
 spec:
   podInfoOnMount: true
   attachRequired: false

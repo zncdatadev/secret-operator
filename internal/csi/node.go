@@ -35,45 +35,75 @@ func NewNodeServer(
 }
 
 func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	log.Info("NodePublishVolume called...")
-
-	if request.GetVolumeCapability() == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
-	}
-	if len(request.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
-	if len(request.GetTargetPath()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
-	}
-	if request.GetVolumeContext() == nil || len(request.GetVolumeContext()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume context missing in request")
+	if err := n.validateNodePublishVolumeRequest(request); err != nil {
+		return nil, err
 	}
 
 	targetPath := request.GetTargetPath()
 
-	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(targetPath, 0750); err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
+	// volumeCtxMap := request.GetVolumeContext()
 
-	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{}); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	// secretVolRefer is a helper to get the secret reference
+	// volumeCtx := NewVolumeContextFromMap(volumeCtxMap)
+
+	if err := n.mount(targetPath); err != nil {
+		return nil, err
 	}
 
 	if err := os.WriteFile(filepath.Join(targetPath, "hello.txt"), []byte("Hello, world!"), fs.FileMode(0644)); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &csi.NodePublishVolumeResponse{}, nil
+}
 
+func (n NodeServer) validateNodePublishVolumeRequest(request *csi.NodePublishVolumeRequest) error {
+	if request.GetVolumeId() == "" {
+		return status.Error(codes.InvalidArgument, "volume ID missing in request")
+	}
+	if request.GetTargetPath() == "" {
+		return status.Error(codes.InvalidArgument, "Target path missing in request")
+	}
+	if request.GetVolumeCapability() == nil {
+		return status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
+
+	if request.GetVolumeContext() == nil || len(request.GetVolumeContext()) == 0 {
+		return status.Error(codes.InvalidArgument, "Volume context missing in request")
+	}
+	return nil
+}
+
+func (n NodeServer) mount(targetPath string) error {
+	// check if the target path exists
+	// if not, create the target path
+	// if exists, return error
+	if exist, err := mount.PathExists(targetPath); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	} else if exist {
+		return status.Error(codes.Internal, "target path already exists")
+	} else {
+		if err := os.MkdirAll(targetPath, 0750); err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
+	}
+
+	opts := []string{
+		"noexec",
+		"nosuid",
+		"nodev",
+	}
+
+	// mount the volume to the target path
+	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", opts); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	return nil
 }
 
 // NodeUnpublishVolume unpublishes the volume from the node.
 // unmount the volume from the target path, and remove the target path
 func (n NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	log.Info("NodeUnpublishVolume called...")
-
 	// check requests
 	if request.GetVolumeId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -98,7 +128,6 @@ func (n NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeUn
 }
 
 func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	log.Info("NodeStageVolume called...")
 	if len(request.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
@@ -116,7 +145,6 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 }
 
 func (n NodeServer) NodeUnstageVolume(ctx context.Context, request *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	log.Info("NodeUnstageVolume called...")
 
 	if len(request.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -139,7 +167,6 @@ func (n NodeServer) NodeExpandVolume(ctx context.Context, request *csi.NodeExpan
 }
 
 func (n NodeServer) NodeGetCapabilities(ctx context.Context, request *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	log.Info("NodeGetCapabilities called...")
 	newCapabilities := func(cap csi.NodeServiceCapability_RPC_Type) *csi.NodeServiceCapability {
 		return &csi.NodeServiceCapability{
 			Type: &csi.NodeServiceCapability_Rpc{
@@ -167,7 +194,6 @@ func (n NodeServer) NodeGetCapabilities(ctx context.Context, request *csi.NodeGe
 }
 
 func (n NodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	log.V(5).Info("Using default NodeGetInfo")
 	return &csi.NodeGetInfoResponse{
 		NodeId: n.nodeID,
 	}, nil

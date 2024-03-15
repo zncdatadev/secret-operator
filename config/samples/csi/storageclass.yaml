@@ -2,7 +2,9 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: zncdata
-provisioner: secret.zncdata.dev
+  labels:
+    zncdata.dev/vendor: zncdata-labs
+    zncdata.dev/kind: storageclass
+provisioner: secrets.zncdata.dev
 parameters:
-  type: gp2
-  fsType: ext4
+  foo: bar

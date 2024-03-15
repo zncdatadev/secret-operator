@@ -16,7 +16,7 @@ resources:
     namespaced: true
   controller: true
   domain: zncdata.dev
-  group: secret
+  group: secrets
   kind: SecretClass
   path: github.com/zncdata-labs/secret-operator/api/v1alpha1
   version: v1alpha1

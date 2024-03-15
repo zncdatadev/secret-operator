@@ -2,12 +2,13 @@ package sanity
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/zncdata-labs/secret-operator/internal/controller/csi"
-	"os"
-	"testing"
+	"github.com/zncdata-labs/secret-operator/internal/csi"
 )
 
 const (

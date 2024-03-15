@@ -14,37 +14,38 @@ spec:
     spec:
       serviceAccountName: zds-operator
       containers:
-      - name: secret-operator
-        image: docker.io/huagang/secret-operator:0.0.1
-        imagePullPolicy: Always
-        securityContext:
-          privileged: true
-          runAsUser: 0
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        args:
-        - "-endpoint=unix:///csi/csi.sock"
-        - "-nodeid=$(NODE_NAME)"
-        volumeMounts:
-        - name: plugin-dir
-          mountPath: /csi
-        - name: mountpoint-dir
-          mountPath: /var/lib/kubelet/pods
-          mountPropagation: Bidirectional
+      # - name: secret-operator
+      #   image: docker-test.zncdata.net/huagang/secret-operator:0.0.3
+      #   imagePullPolicy: IfNotPresent
+      #   securityContext:
+      #     privileged: true
+      #     runAsUser: 0
+      #   env:
+      #   - name: NODE_NAME
+      #     valueFrom:
+      #       fieldRef:
+      #         fieldPath: spec.nodeName
+      #   args:
+      #   - "-endpoint=unix:///csi/csi.sock"
+      #   - "-nodeid=$(NODE_NAME)"
+      #   - "-zap-log-level=5"
+      #   volumeMounts:
+      #   - name: plugin-dir
+      #     mountPath: /csi
+      #   - name: mountpoint-dir
+      #     mountPath: /var/lib/kubelet/pods
+      #     mountPropagation: Bidirectional
       - name: node-driver-registrar
         image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.8.0
         imagePullPolicy: IfNotPresent
         args:
         - --csi-address=/csi/csi.sock
-        - --kubelet-registration-path=/var/lib/kubelet/plugins/secret.zncdata.dev/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/secrets.zncdata.dev/csi.sock
         livenessProbe:
           exec:
             command:
             - /csi-node-driver-registrar
-            - --kubelet-registration-path=/var/lib/kubelet/plugins/secret.zncdata.dev/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/secrets.zncdata.dev/csi.sock
             - --mode=kubelet-registration-probe
           initialDelaySeconds: 30
           timeoutSeconds: 15
@@ -58,6 +59,8 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --csi-address=/csi/csi.sock
+        - --feature-gates=Topology=true
+        - --extra-create-metadata
         - --v=5
         volumeMounts:
         - name: plugin-dir
@@ -79,9 +82,13 @@ spec:
           type: DirectoryOrCreate
       - name: plugin-dir
         hostPath:
-          path: /var/lib/kubelet/plugins/secret.zncdata.dev/
+          path: /var/lib/kubelet/plugins/secrets.zncdata.dev/
           type: DirectoryOrCreate
       - name: registration-dir
         hostPath:
           path: /var/lib/kubelet/plugins_registry/
           type: DirectoryOrCreate
+      - name: workspace-dir
+        hostPath:
+          path: /workspace
+

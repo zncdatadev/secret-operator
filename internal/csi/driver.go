@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/zncdata-labs/secret-operator/internal/controller/version"
+	"github.com/zncdata-labs/secret-operator/internal/csi/version"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	DefaultDriverName = "secret.zncdata.dev"
+	DefaultDriverName = "secrets.zncdata.dev"
 )
 
 type Driver struct {
@@ -42,13 +42,7 @@ func NewDriver(
 
 func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
-	versionMeta, err := version.GetVersionYAML(d.name)
-
-	if err != nil {
-		log.Error(err, "Failed to get driver information")
-		return err
-	}
-	log.V(1).Info("\nDRIVER INFORMATION:\n-------------------\n\nStreaming logs below:", "versionMeta", versionMeta)
+	log.V(1).Info("Driver information", "versionInfo", version.GetVersion(d.name))
 
 	// check node id
 	if d.nodeID == "" {
@@ -62,7 +56,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 	)
 
 	is := NewIdentityServer(d.name, version.BuildVersion)
-	cs := NewControllerServer()
+	cs := NewControllerServer(d.client)
 
 	d.server.Start(d.endpoint, is, cs, ns, testMode)
 

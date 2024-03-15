@@ -17,9 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 
+	"github.com/zncdata-labs/secret-operator/internal/csi"
+	"github.com/zncdata-labs/secret-operator/internal/csi/version"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -30,29 +34,32 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	secretvs1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/internal/controller"
+	secretv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme               = runtime.NewScheme()
-	setupLog             = ctrl.Log.WithName("setup")
+	scheme     = runtime.NewScheme()
+	setupLog   = ctrl.Log.WithName("setup")
+	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	nodeID     = flag.String("nodeid", "", "node id")
+	driverName = flag.String("drivername", csi.DefaultDriverName, "name of the driver")
+
 	metricsAddr          = flag.String("metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	probeAddr            = flag.String("health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	enableLeaderElection = flag.Bool("leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.",
 	)
+	versionInfo = flag.Bool("version", false, "Prints the version information")
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(secretvs1alpha1.AddToScheme(scheme))
+	utilruntime.Must(secretv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -64,6 +71,10 @@ func main() {
 
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if *versionInfo {
+		showVersion()
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -92,28 +103,39 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.SecretClassReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SecretClass")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-
 	ctx := ctrl.SetupSignalHandler()
 
+	go runMgr(ctx, mgr)
+
+	runDriver(ctx, mgr)
+}
+
+func runMgr(ctx context.Context, mgr ctrl.Manager) {
+	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func runDriver(ctx context.Context, mgr ctrl.Manager) {
+	setupLog.Info("starting driver", "driver", *driverName)
+	driver := csi.NewDriver(*driverName, *nodeID, *endpoint, mgr.GetClient())
+
+	err := driver.Run(ctx, false)
+	if err != nil {
+		fmt.Println("Failed to run driver", "error", err.Error())
+		os.Exit(1)
+	}
+}
+
+func showVersion() {
+
+	info, err := version.GetVersionYAML(*driverName)
+	if err != nil {
+		fmt.Println("Failed to get driver information")
+		os.Exit(1)
+	}
+	fmt.Println(info)
+	os.Exit(0)
 }
