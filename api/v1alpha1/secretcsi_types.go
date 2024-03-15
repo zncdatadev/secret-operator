@@ -20,22 +20,116 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+
+	// default values
+	CSIPLUGIN_IMAGE_REPOSITORY = "quay.io/zncdata/secret-csi-plugin"
+	CSIPLUGIN_IMAGE_TAG        = "v0.0.1"
+	CSIPLUGIN_IMAGE_PULLPOLICY = "IfNotPresent"
+
+	NODE_DRIVER_REGISTER_IMAGE_REPOSITORY = "registry.k8s.io/sig-storage/csi-node-driver-registrar"
+	NODE_DRIVER_REGISTER_IMAGE_TAG        = "v2.8.0"
+	NODE_DRIVER_REGISTER_IMAGE_PULLPOLICY = "IfNotPresent"
+
+	CSI_PROVISIONER_IMAGE_REPOSITORY = "registry.k8s.io/sig-storage/csi-provisioner"
+	CSI_PROVISIONER_IMAGE_TAG        = "v3.5.0"
+	CSI_PROVISIONER_IMAGE_PULLPOLICY = "IfNotPresent"
+
+	LIVENESS_PROBE_IMAGE_REPOSITORY = "registry.k8s.io/sig-storage/livenessprobe"
+	LIVENESS_PROBE_IMAGE_TAG        = "v2.11.0"
+	LIVENESS_PROBE_IMAGE_PULLPOLICY = "IfNotPresent"
+)
 
 // SecretCSISpec defines the desired state of SecretCSI
 type SecretCSISpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	CSIPlugin          *CSIPluginSpec          `json:"csiPlugin,omitempty"`
+	NodeDriverRegister *NodeDriverRegisterSpec `json:"nodeDriverRegister,omitempty"`
+	CSIProvisioner     *CSIProvisionerSpec     `json:"csiProvisioner,omitempty"`
+	LivenessProbe      *LivenessProbeSpec      `json:"livenessProbe,omitempty"`
+}
 
-	// Foo is an example field of SecretCSI. Edit secretcsi_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+type CSIPluginSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="quay.io/zncdata/secret-csi-plugin"
+	Repository string `json:"repository,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="v0.0.1"
+	Tag string `json:"tag,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="IfNotPresent"
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	PullPolicy string `json:"pullPolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Logging *LoggingSpec `json:"logging,omitempty"`
+}
+
+type NodeDriverRegisterSpec struct {
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="registry.k8s.io/sig-storage/csi-node-driver-registrar"
+	Repository string `json:"repository,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="v2.8.0"
+	Tag string `json:"tag,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="IfNotPresent"
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	PullPolicy string `json:"pullPolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Logging *LoggingSpec `json:"logging,omitempty"`
+}
+
+type CSIProvisionerSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="registry.k8s.io/sig-storage/csi-provisioner"
+	Repository string `json:"repository,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="v3.5.0"
+	Tag string `json:"tag,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="IfNotPresent"
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	PullPolicy string `json:"pullPolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Logging *LoggingSpec `json:"logging,omitempty"`
+}
+
+type LivenessProbeSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="registry.k8s.io/sig-storage/livenessprobe"
+	Repository string `json:"repository,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="v2.11.0"
+	Tag string `json:"tag,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="IfNotPresent"
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	PullPolicy string `json:"pullPolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Logging *LoggingSpec `json:"logging,omitempty"`
+}
+
+type LoggingSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="info"
+	Level string `json:"level,omitempty"`
 }
 
 // SecretCSIStatus defines the observed state of SecretCSI
 type SecretCSIStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true
