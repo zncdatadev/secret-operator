@@ -30,3 +30,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - secrets.zncdata.dev
+  resources:
+  - secretcsis
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - secrets.zncdata.dev
+  resources:
+  - secretcsis/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - secrets.zncdata.dev
+  resources:
+  - secretcsis/status
+  verbs:
+  - get
+  - patch
+  - update

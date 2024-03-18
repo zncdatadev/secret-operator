@@ -33,8 +33,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	secretvs1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	"github.com/zncdata-labs/secret-operator/internal/controller"
+	csicontroller "github.com/zncdata-labs/secret-operator/internal/controller/secret_csi_plugin"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -53,6 +55,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(secretvs1alpha1.AddToScheme(scheme))
+	utilruntime.Must(secretsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -97,6 +100,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SecretClass")
+		os.Exit(1)
+	}
+	if err = (&csicontroller.SecretCSIReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SecretCSI")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
