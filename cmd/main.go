@@ -36,6 +36,7 @@ import (
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	secretvs1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	"github.com/zncdata-labs/secret-operator/internal/controller"
+	csicontroller "github.com/zncdata-labs/secret-operator/internal/controller/secret_csi_plugin"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -101,7 +102,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SecretClass")
 		os.Exit(1)
 	}
-	if err = (&controller.SecretCSIReconciler{
+	if err = (&csicontroller.SecretCSIReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

@@ -19,8 +19,15 @@ require (
 )
 
 require (
+	emperror.dev/errors v0.8.1 // indirect
+	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
+)
+
+require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cisco-open/k8s-objectmatcher v1.9.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.8.0 // indirect
