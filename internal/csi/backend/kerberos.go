@@ -2,10 +2,7 @@ package backend
 
 import "context"
 
-var _ Backend = &KerberosBackend{}
-
 type KerberosBackend struct {
-	BaseBackend
 }
 
 // GetSecretData implements Backend.

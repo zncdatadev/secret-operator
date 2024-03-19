@@ -22,11 +22,11 @@ import (
 
 // SecretClassSpec defines the desired state of SecretClass
 type SecretClassSpec struct {
-	Backend string `json:"backend"`
+	Backend *BackendSpec `json:"backend,omitempty"`
 }
 
 type BackendSpec struct {
-	AuthTls   *AuthTlsSpec   `json:"authTls,omitempty"`
+	AutoTls   *AuthTlsSpec   `json:"autoTls,omitempty"`
 	K8sSearch *K8sSearchSpec `json:"k8sSearch,omitempty"`
 	Kerberos  *KerberosSpec  `json:"kerberos,omitempty"`
 }
@@ -52,13 +52,15 @@ type KerberosSpec struct {
 
 type K8sSearchSpec struct {
 	SearchNamespace *SearchNamespaceSpec `json:"searchNamespace,omitempty"`
-	MatchLabels     map[string]string    `json:"matchLabels,omitempty"`
 }
 
 type SearchNamespaceSpec struct {
-	Name string `json:"name,omitempty"`
+	Name *string `json:"name,omitempty"`
 
-	Pod struct{} `json:"pod,omitempty"`
+	Pod *PodSpec `json:"pod,omitempty"`
+}
+
+type PodSpec struct {
 }
 
 // SecretClassStatus defines the observed state of SecretClass

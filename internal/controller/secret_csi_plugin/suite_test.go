@@ -39,7 +39,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/internal/util.go"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -74,11 +73,11 @@ var _ = BeforeSuite(func() {
 
 	Expect(os.Setenv(
 		"KUBEBUILDER_ASSETS",
-		filepath.Join(util.LOCAL_BIN, "k8s", fmt.Sprintf("%s-%s-%s", k8sVersion, runtime.GOOS, runtime.GOARCH)),
+		filepath.Join(LOCAL_BIN, "k8s", fmt.Sprintf("%s-%s-%s", k8sVersion, runtime.GOOS, runtime.GOARCH)),
 	)).To(Succeed())
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{util.CRD_DIRECTORIES},
+		CRDDirectoryPaths:     []string{CRD_DIRECTORIES},
 		ErrorIfCRDPathMissing: true,
 	}
 

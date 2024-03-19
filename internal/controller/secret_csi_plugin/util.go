@@ -1,4 +1,4 @@
-package util
+package secret_csi_plugin
 
 import (
 	"context"
@@ -13,11 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	logger = ctrl.Log.WithName("util")
-)
-
 func CreateOrUpdate(ctx context.Context, c client.Client, obj client.Object) (bool, error) {
+	logger = ctrl.Log.WithName("util")
 	key := client.ObjectKeyFromObject(obj)
 	namespace := obj.GetNamespace()
 
