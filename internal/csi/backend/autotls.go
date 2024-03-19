@@ -2,10 +2,7 @@ package backend
 
 import "context"
 
-var _ Backend = &AutoTlsBackend{}
-
 type AutoTlsBackend struct {
-	BaseBackend
 }
 
 // GetSecretData implements Backend.

@@ -26,7 +26,7 @@ spec:
       #       fieldRef:
       #         fieldPath: spec.nodeName
       #   args:
-      #   - "-endpoint=unix:///csi/csi.sock"
+      #   - "-endpoint=unix:///csi/csi-1.sock"
       #   - "-nodeid=$(NODE_NAME)"
       #   - "-zap-log-level=5"
       #   volumeMounts:

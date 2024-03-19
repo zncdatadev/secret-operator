@@ -1,15 +1,18 @@
 package csi
 
 import (
-	"google.golang.org/grpc/reflection"
 	"net"
 	"os"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/reflection"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
+
+	"github.com/zncdata-labs/secret-operator/internal/csi/util"
 )
 
 var (
@@ -30,7 +33,7 @@ type NonBlockingServer interface {
 
 func NewNonBlockingServer() NonBlockingServer {
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(logGRPC),
+		grpc.UnaryInterceptor(util.LogGRPC),
 	}
 
 	server := grpc.NewServer(opts...)
@@ -66,7 +69,7 @@ func (s *nonBlockingServer) ForceStop() {
 
 func (s *nonBlockingServer) serveGrpc(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool) {
 
-	proto, addr, err := ParseEndpoint(endpoint)
+	proto, addr, err := util.ParseEndpoint(endpoint)
 	if err != nil {
 		log.Error(err, "Failed to parse endpoint")
 	}

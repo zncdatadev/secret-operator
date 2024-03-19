@@ -1,41 +1,56 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: debuger
-  labels:
-    name: debuger
+  name: debugger
 spec:
-  containers:
-  - name: debuger
-    image: golang:1.21-bookworm
-    # resources:
-    #   limits:
-    #     memory: "2Gi"
-    #     cpu: "4m"
-    securityContext:
-      privileged: true
-      runAsUser: 0
-    command:
-    - tail
-    - -f
-    - /dev/null
-    volumeMounts:
-    - name: plugin-dir
-      mountPath: /csi
-    - name: mountpoint-dir
-      mountPath: /var/lib/kubelet/pods
-      mountPropagation: Bidirectional
-    - name: workspace-dir
-      mountPath: /workspace
-  volumes:
-  - name: plugin-dir
-    hostPath:
-      path: /var/lib/kubelet/plugins/secrets.zncdata.dev
-      type: DirectoryOrCreate
-  - name: mountpoint-dir
-    hostPath:
-      path: /var/lib/kubelet/pods
-      type: DirectoryOrCreate
-  - name: workspace-dir
-    hostPath:
-      path: /workspace
+  selector:
+    matchLabels:
+      app: debugger
+  serviceName: debugger
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: debugger
+    spec:
+      serviceAccountName: zds-operator
+      containers:
+      - name: debugger
+        image: golang:1.21-bookworm
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        command:
+        - tail
+        - -f
+        - /dev/null
+        volumeMounts:
+        - name: plugin-dir
+          mountPath: /csi
+        - name: mountpoint-dir
+          mountPath: /var/lib/kubelet/pods
+          mountPropagation: Bidirectional
+        - name: workspace-dir
+          mountPath: /workspace
+        - name: vscode-server
+          mountPath: /root/.vscode-server
+      volumes:
+      - name: plugin-dir
+        hostPath:
+          path: /var/lib/kubelet/plugins/secrets.zncdata.dev
+          type: DirectoryOrCreate
+      - name: mountpoint-dir
+        hostPath:
+          path: /var/lib/kubelet/pods
+          type: DirectoryOrCreate
+      - name: workspace-dir
+        hostPath:
+          path: /workspace
+  volumeClaimTemplates:
+  - metadata:
+      name: vscode-server
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi

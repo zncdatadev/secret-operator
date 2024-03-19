@@ -1,4 +1,4 @@
-package csi
+package util
 
 import (
 	"context"
@@ -7,6 +7,11 @@ import (
 
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+var (
+	log = ctrl.Log.WithName("csi-util")
 )
 
 func ParseEndpoint(ep string) (string, string, error) {
@@ -19,7 +24,7 @@ func ParseEndpoint(ep string) (string, string, error) {
 	return "", "", fmt.Errorf("invalid endpoint: %v", ep)
 }
 
-func getLogLevel(method string) int {
+func GetLogLevel(method string) int {
 	if method == "/csi.v1.Identity/Probe" ||
 		method == "/csi.v1.Node/NodeGetCapabilities" ||
 		method == "/csi.v1.Node/NodeGetVolumeStats" {
@@ -28,8 +33,8 @@ func getLogLevel(method string) int {
 	return 2
 }
 
-func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	level := getLogLevel(info.FullMethod)
+func LogGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	level := GetLogLevel(info.FullMethod)
 	log.V(level).Info("GRPC calling", "method", info.FullMethod, "request", protosanitizer.StripSecrets(req))
 
 	resp, err := handler(ctx, req)
@@ -40,3 +45,4 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 	}
 	return resp, err
 }
+

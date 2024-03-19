@@ -2,7 +2,6 @@ package csi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"regexp"
 
@@ -32,66 +31,6 @@ type ControllerServer struct {
 	volumes map[string]int64
 }
 
-// VolumeContextSpec is the struct for create Volume ctx from PVC annotations
-type VolumeContextSpec struct {
-	SecretClassName string `json:"secrets.zncdata.dev/class"`
-	Scope           string `json:"secrets.zncdata.dev/scope"`
-	Pod             string `json:"csi.storage.k8s.io/pod/name"`
-	PodNamespace    string `json:"csi.storage.k8s.io/pod/namespace"`
-	PvcName         string `json:"csi.storage.k8s.io/pvc/name"`
-	PvcNamespace    string `json:"csi.storage.k8s.io/pvc/namespace"`
-}
-
-// ToMap converts VolumeContextSpec to map
-func (v VolumeContextSpec) ToMap() map[string]string {
-	return map[string]string{
-		SECRET_CLASS_ANNOTATION_NAME:         v.SecretClassName,
-		SECRET_SCOPE_ANNOTATION_NAME:         v.Scope,
-		SECRET_POD_NAME_ANNOTATION_NAME:      v.Pod,
-		SECRET_POD_NAMESPACE_ANNOTATION_NAME: v.PodNamespace,
-		SECRET_PVC_NAME_ANNOTATION_NAME:      v.PvcName,
-		SECRET_PVC_NAMESPACE_ANNOTATION_NAME: v.PvcNamespace,
-	}
-}
-
-// ToMapWithJson converts VolumeContextSpec to map with json serialization
-func (v VolumeContextSpec) ToMapWithJson() (map[string]string, error) {
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-
-	var m map[string]string
-	err = json.Unmarshal(bytes, &m)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
-}
-
-func NewVolumeContextFromMap(parameters map[string]string) *VolumeContextSpec {
-	secretClassName, classNameExists := parameters[SECRET_CLASS_ANNOTATION_NAME]
-	secretScope, scopeExists := parameters[SECRET_SCOPE_ANNOTATION_NAME]
-	podName, podNameExists := parameters[SECRET_POD_NAME_ANNOTATION_NAME]
-	podNamespace, podNamespaceExists := parameters[SECRET_POD_NAMESPACE_ANNOTATION_NAME]
-	pvcName, pvcNameExists := parameters[SECRET_PVC_NAME_ANNOTATION_NAME]
-	pvcNamespace, pvcNamespaceExists := parameters[SECRET_PVC_NAMESPACE_ANNOTATION_NAME]
-
-	if !classNameExists || !scopeExists || !podNameExists || !podNamespaceExists || !pvcNameExists || !pvcNamespaceExists {
-		return nil
-	}
-
-	return &VolumeContextSpec{
-		SecretClassName: secretClassName,
-		Scope:           secretScope,
-		Pod:             podName,
-		PodNamespace:    podNamespace,
-		PvcName:         pvcName,
-		PvcNamespace:    pvcNamespace,
-	}
-}
-
 var _ csi.ControllerServer = &ControllerServer{}
 
 func NewControllerServer(client client.Client) *ControllerServer {
@@ -111,11 +50,16 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 		return nil, status.Errorf(codes.AlreadyExists, "Volume: %q, capacity bytes: %d", request.Name, requiredCap)
 	}
 
+	c.volumes[request.Name] = requiredCap
+
 	if request.Parameters["secretFinalizer"] == "true" {
 		log.V(1).Info("Finalizer is true")
 	}
 
-	// get secret Volume refer
+	// requests.parameters is StorageClass.Parameters, which is set by user when creating PVC.
+	// When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
+	// 'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
+	// ref: https://github.com/kubernetes-csi/external-provisioner?tab=readme-ov-file#command-line-options
 	volumeCtx, err := c.getVolumeContext(request.Parameters)
 
 	if err != nil {
@@ -126,7 +70,7 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 		Volume: &csi.Volume{
 			VolumeId:      request.GetName(),
 			CapacityBytes: requiredCap,
-			VolumeContext: volumeCtx.ToMap(),
+			VolumeContext: volumeCtx,
 		},
 	}, nil
 }
@@ -166,11 +110,12 @@ func (c ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVolu
 
 // getVolumeContext gets volume ctx from PVC annotations
 //   - get PVC name and namespace from createVolumeRequestParams. createVolumeRequestParams is a map of parameters from CreateVolumeRequest,
-//     when adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
+//     it is StorageClass.Parameters, which is set by user when creating PVC.
+//     When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
 //     'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
 //   - get PVC by k8s client with PVC name and namespace, then get annotations from PVC.
 //   - get 'secrets.zncdata.dev/class' and 'secrets.zncdata.dev/scope' from PVC annotations.
-func (c ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (*VolumeContextSpec, error) {
+func (c ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (map[string]string, error) {
 	pvcName, pvcNameExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/name"]
 	pvcNamespace, pvcNamespaceExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/namespace"]
 
@@ -180,37 +125,19 @@ func (c ControllerServer) getVolumeContext(createVolumeRequestParams map[string]
 
 	pvc, err := c.getPvc(pvcName, pvcNamespace)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "PVC: %q, Namespace: %q", pvcName, pvcNamespace)
+
+		return nil, status.Errorf(codes.NotFound, "PVC: %q, Namespace: %q. Detail: %v", pvcName, pvcNamespace, err)
 	}
 
 	annotations := pvc.GetAnnotations()
-	secretClassName, classNameExists := annotations[SECRET_CLASS_ANNOTATION_NAME]
-	secretScope, scopeExists := annotations[SECRET_SCOPE_ANNOTATION_NAME]
+	// _, classNameExists := annotations[SECRET_CLASS_ANNOTATION_NAME]
+	// _, scopeExists := annotations[SECRET_SCOPE_ANNOTATION_NAME]
 
-	if !classNameExists || !scopeExists {
-		return nil, errors.New("required annotations not found in PVC")
-	}
+	// if !classNameExists || !scopeExists {
+	// 	return nil, errors.New("required annotations not found in PVC")
+	// }
 
-	podName := ""
-	for _, refObj := range pvc.GetOwnerReferences() {
-		if refObj.Kind == "Pod" {
-			podName = refObj.Name
-			break
-		}
-	}
-
-	if podName == "" {
-		return nil, errors.New("pod owner reference not found in PVC")
-	}
-
-	return &VolumeContextSpec{
-		SecretClassName: secretClassName,
-		Scope:           secretScope,
-		PvcName:         pvcName,
-		PvcNamespace:    pvcNamespace,
-		Pod:             podName,
-		PodNamespace:    pvcNamespace,
-	}, nil
+	return annotations, nil
 }
 
 func (c ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
@@ -231,7 +158,8 @@ func (c ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteV
 	}
 
 	if _, ok := c.volumes[request.VolumeId]; !ok {
-		return nil, status.Errorf(codes.NotFound, "Volume ID: %q", request.VolumeId)
+		// return nil, status.Errorf(codes.NotFound, "Volume ID: %q", request.VolumeId)
+		log.V(1).Info("Volume not found, skip delete volume")
 	}
 
 	return &csi.DeleteVolumeResponse{}, nil

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/internal/util.go"
 	storage "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,7 +64,7 @@ func (r *CSIDriver) apply(ctx context.Context, obj *storage.CSIDriver) (ctrl.Res
 		return ctrl.Result{}, err
 	}
 
-	if mutant, err := util.CreateOrUpdate(ctx, r.client, obj); err != nil {
+	if mutant, err := CreateOrUpdate(ctx, r.client, obj); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
