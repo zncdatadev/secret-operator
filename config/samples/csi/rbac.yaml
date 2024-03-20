@@ -54,16 +54,19 @@ rules:
   resources:
   - pods
   verbs:
+  - list
   - get
+  - watch
   - patch
 - apiGroups:
-  - security.openshift.io
-  resourceNames:
-  - privileged
+  - "secrets.zncdata.dev"
   resources:
-  - securitycontextconstraints
+  - secretclasses
   verbs:
-  - use
+  - get
+  - list
+  - watch
+
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
