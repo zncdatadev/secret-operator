@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"io/fs"
 
@@ -76,7 +77,8 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 
 	// get the secret class
 	if err := n.client.Get(ctx, client.ObjectKey{
-		Name: *volumeContext.SecretClassName,
+		Name:      *volumeContext.SecretClassName,
+		Namespace: *volumeContext.PodNamespace,
 	}, secretClass); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -93,7 +95,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 
 	// get the secret data
 	backend := secretbackend.NewBackend(n.client, secretClass.DeepCopy(), pod.DeepCopy(), volumeContext)
-	secretData, err := backend.GetSecretData(ctx)
+	secretContent, err := backend.GetSecretData(ctx)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -104,15 +106,50 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, err
 	}
 
-	// this is a sample data for debug in develop mode
-	secretData["helloworld.txt"] = "Hello World!"
+	if err := n.updatePod(pod.DeepCopy(), secretContent.ExpiresTime); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 
 	// write the secret data to the target path
-	if err := n.writeData(targetPath, secretData); err != nil {
+	if err := n.writeData(targetPath, secretContent.Data); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil
+}
+
+// updatePod updates the pod annotation with the secret expiration time.
+// If the new expiration time is closer to the current time, update the pod annotation
+// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
+// keeps the old expiration time.
+func (N *NodeServer) updatePod(pod *corev1.Pod, expiresTime *int64) error {
+
+	if expiresTime == nil {
+		return nil
+	}
+
+	existExpiresTimeStr := pod.Annotations["secrets.zncdata.dev/expiration-time"]
+	existExpiresTime, err := strconv.ParseInt(existExpiresTimeStr, 10, 64)
+
+	if err != nil {
+		return err
+	}
+
+	// if the new expiration time is closer to the current time, update the pod annotation
+	// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
+	// keeps the old expiration time.
+	if *expiresTime > existExpiresTime {
+		return nil
+	}
+
+	pod.Annotations["secrets.zncdata.dev/expiration-time"] = strconv.FormatInt(*expiresTime, 10)
+
+	if err := N.client.Update(context.Background(), pod); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // writeData writes the data to the target path.
@@ -177,7 +214,9 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 
 	// unmount the volume from the target path
 	if err := n.mounter.Unmount(targetPath); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		// FIXME: use status.Error to return error
+		// return nil, status.Error(codes.Internal, err.Error())
+		log.V(1).Info("Volume not found, skip delete volume")
 	}
 
 	// remove the target path

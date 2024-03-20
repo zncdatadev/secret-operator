@@ -3,9 +3,9 @@ package util
 // VolumeContextSpec is the struct for create Volume ctx from PVC annotations
 type VolumeContextSpec struct {
 	// Default values for volume context
-	Pod                *string `json:"csi.storage.k8s.io/pod/name"`
-	PodNamespace       *string `json:"csi.storage.k8s.io/pod/namespace"`
-	PodUID             *string `json:"csi.storage.k8s.io/pod/uid"`
+	Pod                *string `json:"csi.storage.k8s.io/pod.name"`
+	PodNamespace       *string `json:"csi.storage.k8s.io/pod.namespace"`
+	PodUID             *string `json:"csi.storage.k8s.io/pod.uid"`
 	ServiceAccountName *string `json:"csi.storage.k8s.io/serviceAccount.name"`
 	Ephemeral          *string `json:"csi.storage.k8s.io/ephemeral"`
 	Provisioner        *string `json:"storage.kubernetes.io/csiProvisionerIdentity"`

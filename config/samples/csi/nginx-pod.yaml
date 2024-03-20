@@ -26,10 +26,10 @@ spec:
   - name: foo
     ephemeral:
       volumeClaimTemplate:
-        # metadata:
-        #   annotations:
-        #     secrets.zncdata.dev/class: zncdata
-        #     test.zncdata.dev/foo: bar
+        metadata:
+          annotations:
+            secrets.zncdata.dev/class: zncdata
+            test.zncdata.dev/foo: bar
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: "zncdata"

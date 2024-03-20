@@ -10,7 +10,7 @@ import (
 )
 
 type IBackend interface {
-	GetSecretData(ctx context.Context) (map[string]string, error)
+	GetSecretData(ctx context.Context) (*util.SecretContent, error)
 }
 
 type Backend struct {
@@ -35,30 +35,31 @@ func NewBackend(
 }
 
 func (b *Backend) backendImpl() IBackend {
-	secretClass := &secretsv1alpha1.SecretClass{}
+	backend := b.secretClass.Spec.Backend
 
-	if secretClass.Spec.Backend.Kerberos != nil {
-		return &KerberosBackend{}
-	}
-
-	if secretClass.Spec.Backend.AutoTls != nil {
-		return &AutoTlsBackend{}
-	}
-
-	if secretClass.Spec.Backend.K8sSearch != nil {
+	if backend.Kerberos != nil {
 		panic("not implemented")
+	}
+
+	if backend.AutoTls != nil {
+		panic("not implemented")
+	}
+
+	if backend.K8sSearch != nil {
+		return &K8sSearchBackend{
+			client:        b.client,
+			secretClass:   b.secretClass,
+			pod:           b.pod,
+			volumeContext: b.volumeContext,
+		}
 	}
 
 	panic("can not find backend")
 }
 
-func (b *Backend) getSecretFromImpl(ctx context.Context, impl IBackend) (map[string]string, error) {
-	return impl.GetSecretData(ctx)
-}
-
-func (b *Backend) GetSecretData(ctx context.Context) (map[string]string, error) {
+func (b *Backend) GetSecretData(ctx context.Context) (*util.SecretContent, error) {
 
 	impl := b.backendImpl()
 
-	return b.getSecretFromImpl(ctx, impl)
+	return impl.GetSecretData(ctx)
 }
