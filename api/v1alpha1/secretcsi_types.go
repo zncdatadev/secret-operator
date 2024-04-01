@@ -23,32 +23,32 @@ import (
 const (
 
 	// default values
-	CSIPLUGIN_IMAGE_REPOSITORY = "quay.io/zncdata/secret-csi-plugin"
-	CSIPLUGIN_IMAGE_TAG        = "v0.0.1"
-	CSIPLUGIN_IMAGE_PULLPOLICY = "IfNotPresent"
+	CSIPluginImageRepository = "quay.io/zncdata/secret-csi-plugin"
+	CSIPluginImageTag        = "v0.0.1"
+	CSIPluginImagePullPolicy = "IfNotPresent"
 
-	NODE_DRIVER_REGISTER_IMAGE_REPOSITORY = "registry.k8s.io/sig-storage/csi-node-driver-registrar"
-	NODE_DRIVER_REGISTER_IMAGE_TAG        = "v2.8.0"
-	NODE_DRIVER_REGISTER_IMAGE_PULLPOLICY = "IfNotPresent"
+	NodeDriverRegisterImageRepository = "registry.k8s.io/sig-storage/csi-node-driver-registrar"
+	NodeDriverRegisterImageTag        = "v2.8.0"
+	NodeDriverRegisterImagePullPolicy = "IfNotPresent"
 
-	CSI_PROVISIONER_IMAGE_REPOSITORY = "registry.k8s.io/sig-storage/csi-provisioner"
-	CSI_PROVISIONER_IMAGE_TAG        = "v3.5.0"
-	CSI_PROVISIONER_IMAGE_PULLPOLICY = "IfNotPresent"
+	CSIProvisionerImageRepository = "registry.k8s.io/sig-storage/csi-provisioner"
+	CSIProvisionerImageTag        = "v3.5.0"
+	CSIProvisionerImagePullPolicy = "IfNotPresent"
 
-	LIVENESS_PROBE_IMAGE_REPOSITORY = "registry.k8s.io/sig-storage/livenessprobe"
-	LIVENESS_PROBE_IMAGE_TAG        = "v2.11.0"
-	LIVENESS_PROBE_IMAGE_PULLPOLICY = "IfNotPresent"
+	LivenessProbeImageRepository = "registry.k8s.io/sig-storage/livenessprobe"
+	LivenessProbeImageTag        = "v2.11.0"
+	LivenessProbeImagePullPolicy = "IfNotPresent"
 )
 
 // SecretCSISpec defines the desired state of SecretCSI
 type SecretCSISpec struct {
-	CSIPlugin          *CSIPluginSpec          `json:"csiPlugin,omitempty"`
-	NodeDriverRegister *NodeDriverRegisterSpec `json:"nodeDriverRegister,omitempty"`
-	CSIProvisioner     *CSIProvisionerSpec     `json:"csiProvisioner,omitempty"`
-	LivenessProbe      *LivenessProbeSpec      `json:"livenessProbe,omitempty"`
+	CSIDriver           *CSIDriverSpec           `json:"csiDriver,omitempty"`
+	NodeDriverRegistrar *NodeDriverRegistrarSpec `json:"nodeDriverRegistrar,omitempty"`
+	CSIProvisioner      *CSIProvisionerSpec      `json:"csiProvisioner,omitempty"`
+	LivenessProbe       *LivenessProbeSpec       `json:"livenessProbe,omitempty"`
 }
 
-type CSIPluginSpec struct {
+type CSIDriverSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="quay.io/zncdata/secret-csi-plugin"
 	Repository string `json:"repository,omitempty"`
@@ -66,7 +66,7 @@ type CSIPluginSpec struct {
 	Logging *LoggingSpec `json:"logging,omitempty"`
 }
 
-type NodeDriverRegisterSpec struct {
+type NodeDriverRegistrarSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="registry.k8s.io/sig-storage/csi-node-driver-registrar"

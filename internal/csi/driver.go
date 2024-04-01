@@ -7,10 +7,15 @@ import (
 	"github.com/zncdata-labs/secret-operator/internal/csi/version"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrl "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
 	DefaultDriverName = "secrets.zncdata.dev"
+)
+
+var (
+	log = ctrl.Log.WithName("csi-driver")
 )
 
 type Driver struct {

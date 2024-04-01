@@ -1,7 +1,7 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: zncdata
+  name: secrets.zncdata.dev
   labels:
     zncdata.dev/vendor: zncdata-labs
     zncdata.dev/kind: storageclass

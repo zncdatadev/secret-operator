@@ -45,9 +45,16 @@ type SecretCSIReconciler struct {
 //+kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretcsis,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretcsis/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretcsis/finalizers,verbs=update
-//+kubebuilder"rbac:groups=storage.k8s.io,resources=csidrivers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=storage.k8s.io,resources=csidrivers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
@@ -84,21 +91,21 @@ func (r *SecretCSIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if result, err := NewRBAC(r.Client, instance).Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.Requeue {
+	} else if result.RequeueAfter > 0 {
 		return result, nil
 	}
 
 	if result, err := NewStorageClass(r.Client, instance).Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.Requeue {
+	} else if result.RequeueAfter > 0 {
 		return result, nil
 	}
 
-	daemonSet := NewDaemonSet(r.Client, instance, &instance.Spec, CSI_SERVICEACCOUNT_NAME)
+	daemonSet := NewDaemonSet(r.Client, instance, &instance.Spec, CSIServiceAccountName)
 
 	if result, err := daemonSet.Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.Requeue {
+	} else if result.RequeueAfter > 0 {
 		return result, nil
 	}
 

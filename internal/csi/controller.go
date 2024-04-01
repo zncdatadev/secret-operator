@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/zncdata-labs/secret-operator/internal/csi/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
@@ -130,12 +131,11 @@ func (c ControllerServer) getVolumeContext(createVolumeRequestParams map[string]
 	}
 
 	annotations := pvc.GetAnnotations()
-	// _, classNameExists := annotations[SECRET_CLASS_ANNOTATION_NAME]
-	// _, scopeExists := annotations[SECRET_SCOPE_ANNOTATION_NAME]
+	_, classNameExists := annotations[util.SECRETS_ZNCDATA_CLASS]
 
-	// if !classNameExists || !scopeExists {
-	// 	return nil, errors.New("required annotations not found in PVC")
-	// }
+	if !classNameExists {
+		return nil, errors.New("required annotations not found in PVC")
+	}
 
 	return annotations, nil
 }

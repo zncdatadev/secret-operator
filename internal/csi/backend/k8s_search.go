@@ -73,7 +73,11 @@ func (k *K8sSearchBackend) getSecret(
 		return nil, fmt.Errorf("can not found secret in namespace %s with labels: %v", namespace, matchingLabels)
 	}
 
-	return &objs.Items[0], nil
+	secret := &objs.Items[0]
+
+	log.V(5).Info("found secret total, use first", "total", len(objs.Items), "secret", secret.Name, "namespace", secret.Namespace)
+
+	return secret, nil
 }
 
 func (k *K8sSearchBackend) scopes() *[]string {

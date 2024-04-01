@@ -5,7 +5,6 @@ metadata:
   labels:
     name: nginx-pod
 spec:
-  serviceAccountName: zds-operator
   containers:
   - name: nginx-pod
     image: nginx
@@ -20,7 +19,7 @@ spec:
     - containerPort: 80
     volumeMounts:
     - name: foo
-      mountPath: /opt/foo
+      mountPath: /zncdata
       mountPropagation: Bidirectional
   volumes:
   - name: foo
@@ -28,11 +27,11 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: zncdata
+            secrets.zncdata.dev/class: k8s-search
             test.zncdata.dev/foo: bar
         spec:
           accessModes: ["ReadWriteOnce"]
-          storageClassName: "zncdata"
+          storageClassName: secrets.zncdata.dev
           resources:
             requests:
               storage: 1Mi

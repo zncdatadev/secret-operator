@@ -17,15 +17,15 @@ type DaemonSet struct {
 	client client.Client
 	cr     *secretsv1alpha1.SecretCSI
 
-	secret         *secretsv1alpha1.SecretCSISpec
+	secretCSI      *secretsv1alpha1.SecretCSISpec
 	serviceAccount string
 }
 
-func NewDaemonSet(client client.Client, cr *secretsv1alpha1.SecretCSI, secret *secretsv1alpha1.SecretCSISpec, serviceAccount string) *DaemonSet {
+func NewDaemonSet(client client.Client, cr *secretsv1alpha1.SecretCSI, secretCSI *secretsv1alpha1.SecretCSISpec, serviceAccount string) *DaemonSet {
 	return &DaemonSet{
 		client:         client,
 		cr:             cr,
-		secret:         secret,
+		secretCSI:      secretCSI,
 		serviceAccount: serviceAccount,
 	}
 }
@@ -108,6 +108,13 @@ func (r *DaemonSet) getVolumes() []corev1.Volume {
 }
 
 func (r *DaemonSet) makeDaemonset() (*appv1.DaemonSet, error) {
+	labels := map[string]string{
+		"app.kubenetes.io/name":        "listener-csi",
+		"app.kubernetes.io/instance":   r.cr.GetName(),
+		"app.kubernetes.io/part-of":    "listener-csi",
+		"app.kubernetes.io/managed-by": "listener-operator",
+		"app.kubernetes.io/created-by": "listener-operator",
+	}
 
 	obj := &appv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,19 +123,20 @@ func (r *DaemonSet) makeDaemonset() (*appv1.DaemonSet, error) {
 		},
 		Spec: appv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": r.getName(),
-				},
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: r.serviceAccount,
 					Volumes:            r.getVolumes(),
 					Containers: []corev1.Container{
-						*r.makeCSIPluginContainer(r.secret.CSIPlugin),
-						*r.makeNodeDriverRegistrar(r.secret.NodeDriverRegister),
-						*r.makeProvisioner(r.secret.CSIProvisioner),
-						*r.makeLivenessProbe(r.secret.LivenessProbe),
+						*r.makeCSIPluginContainer(r.secretCSI.CSIDriver),
+						*r.makeNodeDriverRegistrar(r.secretCSI.NodeDriverRegistrar),
+						*r.makeProvisioner(r.secretCSI.CSIProvisioner),
+						*r.makeLivenessProbe(r.secretCSI.LivenessProbe),
 					},
 				},
 			},
@@ -141,7 +149,7 @@ func (r *DaemonSet) makeDaemonset() (*appv1.DaemonSet, error) {
 	return obj, nil
 }
 
-func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIPluginSpec) *corev1.Container {
+func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIDriverSpec) *corev1.Container {
 	privileged := true
 	runAsUser := int64(0)
 	obj := &corev1.Container{
@@ -169,7 +177,7 @@ func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIPluginSpec) *
 		Args: []string{
 			"-endpoint=$(ADDRESS)",
 			"-nodeid=$(NODE_NAME)",
-			"-zap-log-level=5",
+			"-zap-log-level=" + csi.Logging.Level,
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -177,7 +185,11 @@ func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIPluginSpec) *
 				MountPath: "/csi",
 			},
 			{
-				Name:      VOLUMES_MOUNTPOINT_DIR_NAME,
+				Name: VOLUMES_MOUNTPOINT_DIR_NAME,
+				MountPropagation: func() *corev1.MountPropagationMode {
+					t := corev1.MountPropagationBidirectional
+					return &t
+				}(),
 				MountPath: "/var/lib/kubelet/pods",
 			},
 		},
@@ -186,13 +198,13 @@ func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIPluginSpec) *
 	return obj
 }
 
-func (r *DaemonSet) makeNodeDriverRegistrar(sidecar *secretsv1alpha1.NodeDriverRegisterSpec) *corev1.Container {
+func (r *DaemonSet) makeNodeDriverRegistrar(sidecar *secretsv1alpha1.NodeDriverRegistrarSpec) *corev1.Container {
 	obj := &corev1.Container{
 		Name:            "node-driver-registrar",
 		Image:           sidecar.Repository + ":" + sidecar.Tag,
 		ImagePullPolicy: corev1.PullPolicy(sidecar.PullPolicy),
 		Args: []string{
-			"--v=5",
+			"--v=" + sidecar.Logging.Level,
 			"--csi-address=$(ADDRESS)",
 			"--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
 		},

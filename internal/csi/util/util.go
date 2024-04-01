@@ -45,4 +45,3 @@ func LogGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 	}
 	return resp, err
 }
-
