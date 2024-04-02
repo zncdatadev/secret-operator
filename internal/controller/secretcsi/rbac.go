@@ -34,18 +34,6 @@ func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 
 	sa, clusterRole, clusterRoleBinding := r.build()
 
-	if err := ctrl.SetControllerReference(r.cr, sa, r.client.Scheme()); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := ctrl.SetControllerReference(r.cr, clusterRole, r.client.Scheme()); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := ctrl.SetControllerReference(r.cr, clusterRoleBinding, r.client.Scheme()); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	if mutant, err := CreateOrUpdate(ctx, r.client, sa); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {
@@ -72,7 +60,6 @@ func (r *RBAC) build() (*corev1.ServiceAccount, *rbacv1.ClusterRole, *rbacv1.Clu
 
 	sa := r.buildServiceAccount()
 	clusterRole := r.buildClusterRole()
-
 	clusterRoleBinding := r.buildClusterRoleBinding()
 
 	return sa, clusterRole, clusterRoleBinding
@@ -82,7 +69,8 @@ func (r *RBAC) buildServiceAccount() *corev1.ServiceAccount {
 
 	obj := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CSI_SERVICEACCOUNT_NAME,
+			Name:      CSIServiceAccountName,
+			Namespace: r.cr.GetNamespace(),
 		},
 	}
 	return obj
@@ -91,7 +79,7 @@ func (r *RBAC) buildServiceAccount() *corev1.ServiceAccount {
 func (r *RBAC) buildClusterRole() *rbacv1.ClusterRole {
 	obj := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CSI_CLUSTERROLE_NAME,
+			Name: CSIClusterRoleName,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -148,18 +136,18 @@ func (r *RBAC) buildClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 
 	obj := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CSI_CLUSTERROLEBINDING_NAME,
+			Name: CSIClusterRoleBindingName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      CSI_SERVICEACCOUNT_NAME,
+				Name:      CSIServiceAccountName,
 				Namespace: r.cr.GetNamespace(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			Name:     CSI_CLUSTERROLE_NAME,
+			Name:     CSIClusterRoleName,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}

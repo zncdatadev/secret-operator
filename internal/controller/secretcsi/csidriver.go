@@ -33,13 +33,12 @@ func (r *CSIDriver) Reconcile(ctx context.Context) (ctrl.Result, error) {
 }
 
 func (r *CSIDriver) build() *storage.CSIDriver {
-	attachRequired := true
+	attachRequired := false
 	podInfoOnMount := true
 
 	obj := &storage.CSIDriver{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secrets.zncdata.dev",
-			Namespace: r.cr.GetNamespace(),
+			Name: "secrets.zncdata.dev",
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "secret-operator",
 			},
@@ -59,11 +58,6 @@ func (r *CSIDriver) build() *storage.CSIDriver {
 }
 
 func (r *CSIDriver) apply(ctx context.Context, obj *storage.CSIDriver) (ctrl.Result, error) {
-
-	if err := ctrl.SetControllerReference(r.cr, obj, r.client.Scheme()); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	if mutant, err := CreateOrUpdate(ctx, r.client, obj); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {

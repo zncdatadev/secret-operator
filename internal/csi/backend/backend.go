@@ -7,6 +7,11 @@ import (
 	"github.com/zncdata-labs/secret-operator/internal/csi/util"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrl "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+var (
+	log = ctrl.Log.WithName("csi-backend")
 )
 
 type IBackend interface {

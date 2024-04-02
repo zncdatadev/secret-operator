@@ -73,11 +73,11 @@ var _ = BeforeSuite(func() {
 
 	Expect(os.Setenv(
 		"KUBEBUILDER_ASSETS",
-		filepath.Join(LOCAL_BIN, "k8s", fmt.Sprintf("%s-%s-%s", k8sVersion, runtime.GOOS, runtime.GOARCH)),
+		filepath.Join(LocalBin, "k8s", fmt.Sprintf("%s-%s-%s", k8sVersion, runtime.GOOS, runtime.GOARCH)),
 	)).To(Succeed())
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{CRD_DIRECTORIES},
+		CRDDirectoryPaths:     []string{CrdDirectories},
 		ErrorIfCRDPathMissing: true,
 	}
 
