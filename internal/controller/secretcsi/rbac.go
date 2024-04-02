@@ -32,7 +32,7 @@ func (r *RBAC) Reconcile(ctx context.Context) (ctrl.Result, error) {
 
 func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 
-	sa, clusterRole, clusterRoleBinding := r.build()
+	sa := r.buildServiceAccount()
 
 	if mutant, err := CreateOrUpdate(ctx, r.client, sa); err != nil {
 		return ctrl.Result{}, err
@@ -40,11 +40,25 @@ func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
+	clusterRole := r.buildClusterRole()
+
 	if mutant, err := CreateOrUpdate(ctx, r.client, clusterRole); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
+
+	clusterRoleBinding, err := r.descClusterRoleBinding(ctx)
+	if err != nil && client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	}
+
+	clusterRoleBinding, err = r.clusterRoleBindingGC(ctx, clusterRoleBinding)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	clusterRoleBinding = r.buildClusterRoleBinding(clusterRoleBinding)
 
 	if mutant, err := CreateOrUpdate(ctx, r.client, clusterRoleBinding); err != nil {
 		return ctrl.Result{}, err
@@ -54,15 +68,6 @@ func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 
 	return ctrl.Result{}, nil
 
-}
-
-func (r *RBAC) build() (*corev1.ServiceAccount, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
-
-	sa := r.buildServiceAccount()
-	clusterRole := r.buildClusterRole()
-	clusterRoleBinding := r.buildClusterRoleBinding()
-
-	return sa, clusterRole, clusterRoleBinding
 }
 
 func (r *RBAC) buildServiceAccount() *corev1.ServiceAccount {
@@ -132,24 +137,94 @@ func (r *RBAC) buildClusterRole() *rbacv1.ClusterRole {
 	return obj
 }
 
-func (r *RBAC) buildClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+func (r *RBAC) descClusterRoleBinding(ctx context.Context) (*rbacv1.ClusterRoleBinding, error) {
+	obj := &rbacv1.ClusterRoleBinding{}
+	if err := r.client.Get(ctx, client.ObjectKey{
+		Name: CSIClusterRoleBindingName,
+	}, obj); err != nil {
+		return nil, err
+	}
 
+	return obj.DeepCopy(), nil
+}
+
+func (r *RBAC) buildClusterRoleBinding(existRoleBinding *rbacv1.ClusterRoleBinding) *rbacv1.ClusterRoleBinding {
 	obj := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: CSIClusterRoleBindingName,
 		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      CSIServiceAccountName,
-				Namespace: r.cr.GetNamespace(),
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			Name:     CSIClusterRoleName,
-			APIGroup: "rbac.authorization.k8s.io",
-		},
+		Subjects: []rbacv1.Subject{},
+		RoleRef:  rbacv1.RoleRef{},
 	}
+
+	if existRoleBinding != nil {
+		obj = existRoleBinding.DeepCopy()
+		logger.V(1).Info("found exist cluster role binding", "name", obj.Name, "subjectLength", len(obj.Subjects))
+	}
+
+	obj.RoleRef = rbacv1.RoleRef{
+		Kind:     "ClusterRole",
+		Name:     CSIClusterRoleName,
+		APIGroup: "rbac.authorization.k8s.io",
+	}
+
+	alreadyBinding := false
+	for _, subj := range obj.Subjects {
+		if subj.Kind == "ServiceAccount" && subj.Name == CSIServiceAccountName && subj.Namespace == r.cr.GetNamespace() {
+			alreadyBinding = true
+			break
+		}
+	}
+
+	if !alreadyBinding {
+		obj.Subjects = append(obj.Subjects, rbacv1.Subject{
+			Kind:      "ServiceAccount",
+			Name:      CSIServiceAccountName,
+			Namespace: r.cr.GetNamespace(),
+		})
+	}
+
 	return obj
+}
+
+// clusterRoleBindingGC remove service account not found
+func (r *RBAC) clusterRoleBindingGC(ctx context.Context, obj *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
+
+	if obj == nil {
+		return nil, nil
+	}
+
+	obj = obj.DeepCopy()
+	filterSubjs := []rbacv1.Subject{}
+	for i, subj := range obj.Subjects {
+		if subj.Kind == "ServiceAccount" {
+			if exist, err := r.getServiceAccount(ctx, subj.Name, subj.Namespace); err != nil {
+				return nil, err
+			} else if exist {
+				filterSubjs = append(filterSubjs, obj.Subjects[i])
+			} else {
+				logger.V(1).Info("service account not found", "name", subj.Name, "namespace", subj.Namespace)
+			}
+		}
+	}
+
+	obj.Subjects = filterSubjs
+
+	return obj, nil
+}
+
+func (r *RBAC) getServiceAccount(ctx context.Context, name, namespace string) (bool, error) {
+	obj := &corev1.ServiceAccount{}
+	if err := r.client.Get(ctx, client.ObjectKey{
+		Name:      name,
+		Namespace: namespace,
+	}, obj); err != nil {
+		// notfound
+		if client.IgnoreNotFound(err) == nil {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }

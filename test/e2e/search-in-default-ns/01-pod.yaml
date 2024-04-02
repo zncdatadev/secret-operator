@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: nginx-pod
+  name: pod
   labels:
-    name: nginx-pod
+    name: pod
 spec:
   containers:
-  - name: nginx-pod
+  - name: pod
     image: nginx
     securityContext:
       privileged: true
@@ -22,7 +22,7 @@ spec:
       mountPath: /opt/zncdata
     readinessProbe:
       exec:
-        command: ["sh", "-c", "ls /opt/zncdata/ | grep -q ."]
+        command: ["sh", "-c", "cat /opt/zncdata/mode | grep -q default"]
       initialDelaySeconds: 1
       periodSeconds: 5
   volumes:
@@ -31,7 +31,7 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: k8s-search
+            secrets.zncdata.dev/class: search-default-ns
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: secrets.zncdata.dev

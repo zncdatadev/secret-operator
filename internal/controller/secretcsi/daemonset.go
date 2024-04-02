@@ -46,7 +46,7 @@ func (r *DaemonSet) Reconcile(ctx context.Context) (ctrl.Result, error) {
 }
 
 func (r *DaemonSet) getName() string {
-	return "csi-secrets"
+	return r.cr.GetName() + "-csi"
 }
 
 func (r *DaemonSet) Satisfied(ctx context.Context) (bool, error) {
@@ -84,7 +84,7 @@ func (r *DaemonSet) getVolumes() []corev1.Volume {
 			Name: VOLUMES_PLUGIN_DIR_NAME,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/var/lib/kubelet/plugins" + secretsv1alpha1.GroupVersion.Group,
+					Path: "/var/lib/kubelet/plugins/" + secretsv1alpha1.GroupVersion.Group,
 					Type: func() *corev1.HostPathType {
 						t := corev1.HostPathDirectoryOrCreate
 						return &t
@@ -152,6 +152,16 @@ func (r *DaemonSet) makeDaemonset() (*appv1.DaemonSet, error) {
 func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIDriverSpec) *corev1.Container {
 	privileged := true
 	runAsUser := int64(0)
+
+	args := []string{
+		"-endpoint=$(ADDRESS)",
+		"-nodeid=$(NODE_NAME)",
+	}
+
+	if csi.Logging != nil {
+		args = append(args, "-zap-log-level="+csi.Logging.Level)
+	}
+
 	obj := &corev1.Container{
 		Name:            "csi-secrets",
 		Image:           csi.Repository + ":" + csi.Tag,
@@ -174,11 +184,7 @@ func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIDriverSpec) *
 				Value: "unix:///csi/csi.sock",
 			},
 		},
-		Args: []string{
-			"-endpoint=$(ADDRESS)",
-			"-nodeid=$(NODE_NAME)",
-			"-zap-log-level=" + csi.Logging.Level,
-		},
+		Args: args,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      VOLUMES_PLUGIN_DIR_NAME,
@@ -199,15 +205,20 @@ func (r *DaemonSet) makeCSIPluginContainer(csi *secretsv1alpha1.CSIDriverSpec) *
 }
 
 func (r *DaemonSet) makeNodeDriverRegistrar(sidecar *secretsv1alpha1.NodeDriverRegistrarSpec) *corev1.Container {
+	args := []string{
+		"--csi-address=$(ADDRESS)",
+		"--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
+	}
+
+	if sidecar.Logging != nil {
+		args = append(args, "-v="+sidecar.Logging.Level)
+	}
+
 	obj := &corev1.Container{
 		Name:            "node-driver-registrar",
 		Image:           sidecar.Repository + ":" + sidecar.Tag,
 		ImagePullPolicy: corev1.PullPolicy(sidecar.PullPolicy),
-		Args: []string{
-			"--v=" + sidecar.Logging.Level,
-			"--csi-address=$(ADDRESS)",
-			"--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
-		},
+		Args:            args,
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ADDRESS",
@@ -215,7 +226,7 @@ func (r *DaemonSet) makeNodeDriverRegistrar(sidecar *secretsv1alpha1.NodeDriverR
 			},
 			{
 				Name:  "DRIVER_REG_SOCK_PATH",
-				Value: "/var/lib/kubelet/plugins" + secretsv1alpha1.GroupVersion.Group + "/csi.sock",
+				Value: "/var/lib/kubelet/plugins/" + secretsv1alpha1.GroupVersion.Group + "/csi.sock",
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
@@ -234,16 +245,21 @@ func (r *DaemonSet) makeNodeDriverRegistrar(sidecar *secretsv1alpha1.NodeDriverR
 }
 
 func (r *DaemonSet) makeProvisioner(sidecar *secretsv1alpha1.CSIProvisionerSpec) *corev1.Container {
+	args := []string{
+		"--csi-address=$(ADDRESS)",
+		"--feature-gates=Topology=true",
+		"--extra-create-metadata",
+	}
+
+	if sidecar.Logging != nil {
+		args = append(args, "-v="+sidecar.Logging.Level)
+	}
+
 	obj := &corev1.Container{
 		Name:            "csi-provisioner",
 		Image:           sidecar.Repository + ":" + sidecar.Tag,
 		ImagePullPolicy: corev1.PullPolicy(sidecar.PullPolicy),
-		Args: []string{
-			"--v=5",
-			"--csi-address=$(ADDRESS)",
-			"--feature-gates=Topology=true",
-			"--extra-create-metadata",
-		},
+		Args:            args,
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ADDRESS",
@@ -262,14 +278,20 @@ func (r *DaemonSet) makeProvisioner(sidecar *secretsv1alpha1.CSIProvisionerSpec)
 }
 
 func (r *DaemonSet) makeLivenessProbe(sidecar *secretsv1alpha1.LivenessProbeSpec) *corev1.Container {
+	args := []string{
+		"--csi-address=$(ADDRESS)",
+		"--health-port=9808",
+	}
+
+	if sidecar.Logging != nil {
+		args = append(args, "-v="+sidecar.Logging.Level)
+	}
+
 	obj := &corev1.Container{
 		Name:            "liveness-probe",
 		Image:           sidecar.Repository + ":" + sidecar.Tag,
 		ImagePullPolicy: corev1.PullPolicy(sidecar.PullPolicy),
-		Args: []string{
-			"--csi-address=$(ADDRESS)",
-			"--health-port=9808",
-		},
+		Args:            args,
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ADDRESS",

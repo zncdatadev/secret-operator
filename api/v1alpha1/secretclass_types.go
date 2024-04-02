@@ -69,7 +69,7 @@ type SecretClassStatus struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:path=listenerclasses,scope=Cluster
+//+kubebuilder:resource:path=secretclasses,scope=Cluster
 //+kubebuilder:subresource:status
 
 // SecretClass is the Schema for the secretclasses API
