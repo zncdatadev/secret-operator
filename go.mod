@@ -9,7 +9,7 @@ require (
 	github.com/kubernetes-csi/csi-test/v5 v5.2.0
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
-	google.golang.org/grpc v1.62.0
+	google.golang.org/grpc v1.62.1
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
