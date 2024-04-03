@@ -2,7 +2,6 @@ package secret_csi_plugin
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	corev1 "k8s.io/api/core/v1"
@@ -68,10 +67,7 @@ func CreateOrUpdate(ctx context.Context, c client.Client, obj client.Object) (bo
 		}
 
 		if !result.IsEmpty() {
-			logger.Info(
-				fmt.Sprintf("Resource update for object %s:%s", kinds, obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()),
-				"patch", string(result.Patch),
-			)
+			logger.V(2).Info("Resource update object", "kind", kinds, "name", obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName(), "patch", string(result.Patch))
 
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(obj); err != nil {
 				logger.Error(err, "failed to annotate modified object", "object", obj)
@@ -86,7 +82,7 @@ func CreateOrUpdate(ctx context.Context, c client.Client, obj client.Object) (bo
 			return true, nil
 		}
 
-		logger.V(1).Info(fmt.Sprintf("Skipping update for object %s:%s", kinds, obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()))
+		logger.V(2).Info("Skipping update for object", "kind", kinds, "name", obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName())
 
 	}
 	return false, err

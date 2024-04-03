@@ -1,0 +1,12 @@
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod
+status:
+  phase: Running
+  containerStatuses:
+  - name: pod
+    ready: true
+    restartCount: 0
+    started: true

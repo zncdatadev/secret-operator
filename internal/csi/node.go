@@ -73,12 +73,21 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Secret class name missing in request")
 	}
 
+	scs := &secretsv1alpha1.SecretClassList{}
+
+	// get the secret class list
+	if err := n.client.List(ctx, scs); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	log.V(1).Info("SecretClassList", "SecretClassList", scs)
+
 	secretClass := &secretsv1alpha1.SecretClass{}
 
 	// get the secret class
+	// SecretClass is cluster coped, so we don't need to specify the namespace
 	if err := n.client.Get(ctx, client.ObjectKey{
-		Name:      *volumeContext.SecretClassName,
-		Namespace: *volumeContext.PodNamespace,
+		Name: *volumeContext.SecretClassName,
 	}, secretClass); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
