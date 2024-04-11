@@ -125,16 +125,19 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 // with the new expiration time. Otherwise, do nothing, meaning the pod annotation
 // keeps the old expiration time.
 func (n *NodeServer) updatePod(pod *corev1.Pod, expiresTime *int64) error {
-
+	var err error
 	if expiresTime == nil {
 		return nil
 	}
 
-	existExpiresTimeStr := pod.Annotations[volume.SecretZncdataExpirationTime]
-	existExpiresTime, err := strconv.ParseInt(existExpiresTimeStr, 10, 64)
+	var existExpiresTime int64 = 0
 
-	if err != nil {
-		return err
+	existExpiresTimeStr := pod.Annotations[volume.SecretZncdataExpirationTime]
+	if existExpiresTimeStr != "" {
+		existExpiresTime, err = strconv.ParseInt(existExpiresTimeStr, 10, 64)
+		if err != nil {
+			return err
+		}
 	}
 
 	// if the new expiration time is closer to the current time, update the pod annotation

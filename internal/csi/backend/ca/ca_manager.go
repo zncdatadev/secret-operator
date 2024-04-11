@@ -120,6 +120,7 @@ func (c *CertificateManager) savePEMKeyPairsToSecret(ctx context.Context, data m
 
 func (c *CertificateManager) saveCertificateAuthorities(
 	ctx context.Context,
+	cas []*CertificateAuthority,
 ) error {
 
 	if !c.auto {
@@ -127,7 +128,7 @@ func (c *CertificateManager) saveCertificateAuthorities(
 	}
 
 	data := map[string][]byte{}
-	for _, ca := range c.certificateAuthorities {
+	for _, ca := range cas {
 		fmttedSerialNumber := formatSerialNumber(ca.Certificate.SerialNumber)
 		data[fmttedSerialNumber+".crt"] = ca.CertificatePEM()
 		data[fmttedSerialNumber+".key"] = ca.privateKeyPEM()
@@ -193,7 +194,7 @@ func (c *CertificateManager) getCertificateAuthorities(ctx context.Context, pemK
 	}
 
 	// save certificate authorities
-	if err := c.saveCertificateAuthorities(ctx); err != nil {
+	if err := c.saveCertificateAuthorities(ctx, cas); err != nil {
 		return nil, err
 	}
 
@@ -270,11 +271,15 @@ func (c *CertificateManager) GetCertificateAuthority(
 	for _, ca := range cas {
 		if ca.Certificate.NotAfter.After(atAfter) {
 			filtedCAs = append(filtedCAs, ca)
+		} else {
+			logger.V(0).Info("Certificate authority expired time before max certificate expired time in secret class configed",
+				"serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter,
+			)
 		}
 	}
 
 	// oldese certificate authority
-	var certificateAuthority *CertificateAuthority
+	certificateAuthority := filtedCAs[0]
 
 	for _, ca := range filtedCAs {
 		if ca.Certificate.NotAfter.Before(certificateAuthority.Certificate.NotAfter) {

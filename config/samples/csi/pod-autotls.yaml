@@ -7,7 +7,10 @@ metadata:
 spec:
   containers:
   - name: pod-auto-tls
-    image: nginx
+    image: azul/zulu-openjdk:8-latest
+    args:
+    - tail
+    - -f
     securityContext:
       privileged: true
       runAsUser: 0
@@ -32,6 +35,8 @@ spec:
         metadata:
           annotations:
             secrets.zncdata.dev/class: auto-tls
+            secrets.zncdata.dev/format: tls-p12
+            secrets.zncdata.dev/tlsPKCS12Password: foo
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: secrets.zncdata.dev

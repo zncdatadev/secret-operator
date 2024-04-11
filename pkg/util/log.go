@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"runtime/debug"
 
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
@@ -27,8 +28,8 @@ func LogGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 
 	resp, err := handler(ctx, req)
 	if err != nil {
-		log.Error(err, "GRPC called error", "method", info.FullMethod)
-		// log.Error(err, "GRPC called error", "method", info.FullMethod, "stack", string(debug.Stack()))
+		// log.Error(err, "GRPC called error", "method", info.FullMethod)
+		log.Error(err, "GRPC called error", "method", info.FullMethod, "stack", string(debug.Stack()))
 	} else {
 		log.V(level).Info("GRPC called", "method", info.FullMethod, "response", protosanitizer.StripSecrets(resp))
 	}

@@ -67,14 +67,19 @@ func NewCertificateAuthorityFromData(
 	certPEM []byte,
 	keyPEM []byte,
 ) (*CertificateAuthority, error) {
-	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 
 	if err != nil {
 		return nil, err
 	}
 
+	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return nil, err
+	}
+
 	return NewCertificateAuthority(
-		&Certificate{Certificate: cert.Leaf, PrivateKey: cert.PrivateKey.(*rsa.PrivateKey)},
+		&Certificate{Certificate: x509Cert, PrivateKey: tlsCert.PrivateKey.(*rsa.PrivateKey)},
 	)
 }
 
@@ -302,10 +307,10 @@ func formatSerialNumber(serialNumber *big.Int) string {
 
 	// 使用正则表达式将字符串格式化为你想要的格式
 	re := regexp.MustCompile("(?i)([0-9a-f]{2})")
-	formattedStr := re.ReplaceAllString(hexStr, "$1:")
+	formattedStr := re.ReplaceAllString(hexStr, "$1-")
 
 	// 删除最后一个冒号
-	if len(formattedStr) > 0 && formattedStr[len(formattedStr)-1] == ':' {
+	if len(formattedStr) > 0 && formattedStr[len(formattedStr)-1] == '-' {
 		formattedStr = formattedStr[:len(formattedStr)-1]
 	}
 
