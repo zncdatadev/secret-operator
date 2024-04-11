@@ -24,7 +24,7 @@ func NewIdentityServer(name, version string) *IdentityServer {
 
 }
 
-func (i IdentityServer) GetPluginInfo(ctx context.Context, request *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+func (i *IdentityServer) GetPluginInfo(ctx context.Context, request *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	if i.name == "" {
 		return nil, status.Error(codes.Unavailable, "driver name not configured")
 	}
@@ -39,7 +39,7 @@ func (i IdentityServer) GetPluginInfo(ctx context.Context, request *csi.GetPlugi
 	}, nil
 }
 
-func (i IdentityServer) GetPluginCapabilities(ctx context.Context, request *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+func (i *IdentityServer) GetPluginCapabilities(ctx context.Context, request *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 
 	return &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
@@ -54,6 +54,6 @@ func (i IdentityServer) GetPluginCapabilities(ctx context.Context, request *csi.
 	}, nil
 }
 
-func (i IdentityServer) Probe(ctx context.Context, request *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+func (i *IdentityServer) Probe(ctx context.Context, request *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{Ready: &wrappers.BoolValue{Value: true}}, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
+	"github.com/zncdata-labs/secret-operator/pkg/resource"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +37,7 @@ func (r *DaemonSet) Reconcile(ctx context.Context) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	mutant, err := CreateOrUpdate(ctx, r.client, obj)
+	mutant, err := resource.CreateOrUpdate(ctx, r.client, obj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {

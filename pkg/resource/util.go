@@ -1,4 +1,4 @@
-package secret_csi_plugin
+package resource
 
 import (
 	"context"
@@ -10,6 +10,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	logger = ctrl.Log.WithName("resource-util")
 )
 
 func CreateOrUpdate(ctx context.Context, c client.Client, obj client.Object) (bool, error) {

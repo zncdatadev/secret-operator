@@ -11,7 +11,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 
-	"github.com/zncdata-labs/secret-operator/internal/csi/util"
+	"github.com/zncdata-labs/secret-operator/pkg/util"
 )
 
 // NonBlockingServer Defines Non blocking GRPC server interfaces
