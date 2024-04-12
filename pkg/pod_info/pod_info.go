@@ -29,6 +29,7 @@ func NewPodInfo(
 	volumeSelector *volume.SecretVolumeSelector,
 ) *PodInfo {
 	return &PodInfo{
+		client:         client,
 		Pod:            pod,
 		VolumeSelector: volumeSelector,
 	}
@@ -46,6 +47,9 @@ func (p *PodInfo) GetPodIP() string {
 	return p.Pod.Status.PodIP
 }
 
+// Get the pod's IP address
+// k8s assign ips for pod when pvc is successfully bound,
+// so it is empty when pvc is not bound
 func (p *PodInfo) GetPodIPs() []string {
 	ips := []string{}
 	for _, address := range p.Pod.Status.PodIPs {
@@ -76,24 +80,32 @@ func (p *PodInfo) GetNode(ctx context.Context) (*corev1.Node, error) {
 
 }
 
-func (p *PodInfo) GetNodeIPs(ctx context.Context) []Address {
+func (p *PodInfo) GetNodeIPs(ctx context.Context) ([]Address, error) {
 
 	node, err := p.GetNode(ctx)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
 	addresses := []Address{}
 
 	for _, address := range node.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {
+			ip := net.ParseIP(address.Address)
+			if ip == nil {
+				return nil, fmt.Errorf("invalid node ip: %s from node %s", address.Address, p.GetNodeName())
+			}
 			addresses = append(addresses, Address{
-				IP: net.IP(address.Address),
+				IP: ip,
 			})
 		}
 	}
 
-	return addresses
+	logger.V(5).Info("get node ip filter by internal and external", "pod", p.GetPodName(),
+		"namespace", p.GetPodNamespace(), "node", p.GetNodeName(), "addresses", addresses,
+	)
+
+	return addresses, nil
 }
 
 func (p *PodInfo) GetServiceIPsByName(name string) []Address {
@@ -110,29 +122,33 @@ func (p *PodInfo) GetServiceIPsByName(name string) []Address {
 // In statusfulset, the spec.serviceName field is required, so the pod will come with pod.spec.subdomain.
 // In deployment, the pod does not have pod.spec.subdomain by default. If needed, you can first create a Service, and then
 // configure the subdomain field for the podTemplate in the deployment.
-func (p *PodInfo) GetPodAddresses() []Address {
+func (p *PodInfo) GetPodAddresses() ([]Address, error) {
+	var addresses []Address
 	svcName := p.Pod.Spec.Subdomain
-	if svcName == "" {
-		return nil
-	}
-
-	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
-	addresses := []Address{
-		{
-			Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, p.GetPodNamespace()),
-		},
-		{
-			Hostname: fmt.Sprintf("%s.%s.%s.svc.cluster.local", p.GetPodName(), svcName, p.GetPodNamespace()),
-		},
-	}
-
-	for _, ip := range p.GetPodIPs() {
+	if svcName != "" {
+		// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 		addresses = append(addresses, Address{
-			IP: net.IP(ip),
+			Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, p.GetPodNamespace()),
+		})
+		addresses = append(addresses, Address{
+			Hostname: fmt.Sprintf("%s.%s.%s.svc.cluster.local", p.GetPodName(), svcName, p.GetPodNamespace()),
 		})
 	}
 
-	return addresses
+	for _, ipStr := range p.GetPodIPs() {
+		ip := net.ParseIP(ipStr)
+
+		if ip == nil {
+			return nil, fmt.Errorf("invalid pod ip: %s from pod %s", ipStr, p.GetPodName())
+		}
+		addresses = append(addresses, Address{
+			IP: ip,
+		})
+	}
+
+	logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "addresses", addresses)
+
+	return addresses, nil
 }
 
 func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
@@ -141,17 +157,31 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	scoped := p.VolumeSelector.Scope
 
 	if scoped.Node == volume.ScopeNode {
-		addresses = append(addresses, p.GetNodeIPs(ctx)...)
+		nodeIps, err := p.GetNodeIPs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, nodeIps...)
+		logger.V(1).Info("get node ip", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "node", p.GetNodeName())
 	}
 
 	if scoped.Pod == volume.ScopePod {
-		addresses = append(addresses, p.GetPodAddresses()...)
+		podAddresses, err := p.GetPodAddresses()
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, podAddresses...)
+		logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace())
 	}
 
 	if scoped.Services != nil {
+		svcAddresses := []Address{}
 		for _, svcName := range scoped.Services {
-			addresses = append(addresses, p.GetServiceIPsByName(svcName)...)
+			svcAddresses = append(svcAddresses, p.GetServiceIPsByName(svcName)...)
+
 		}
+		addresses = append(addresses, svcAddresses...)
+		logger.V(1).Info("get service addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "services", scoped.Services)
 	}
 
 	if scoped.ListenerVolumes != nil {
@@ -161,6 +191,10 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 		}
 		addresses = append(addresses, listenerAddresses...)
 	}
+
+	logger.V(1).Info("get scoped addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+		"scope", scoped, "addresses", addresses,
+	)
 
 	return addresses, nil
 }
@@ -183,7 +217,8 @@ func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
 		if volume.Ephemeral != nil {
 			// If the volume is an ephemeral volume, then the volume name is pod name + volume name
 			pvcName := fmt.Sprintf("%s-%s", p.GetPodName(), volume.Name)
-			logger.V(1).Info("found ephemeral volume in pod", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "volume", volume.Name, "pvc", pvcName)
+			logger.V(1).Info("found ephemeral volume in pod", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+				"volume", volume.Name, "pvc", pvcName)
 			volumeAndPvcNames[volume.Name] = pvcName
 		} else if volume.PersistentVolumeClaim != nil {
 			// When the workloads are statefulset, the name is automatically generated by statefulset through pvcTemplate
@@ -195,7 +230,9 @@ func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
 	}
 
 	if len(volumeAndPvcNames) == 0 {
-		logger.V(1).Info("can not find any volume in pod, support volume type: PersistentVolumeClaim and ephemeral", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "podVolumes", p.Pod.Spec.Volumes)
+		logger.V(1).Info("can not find any volume in pod, support volume type: PersistentVolumeClaim and ephemeral",
+			"pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "podVolumes", p.Pod.Spec.Volumes,
+		)
 		return nil, nil
 	}
 
@@ -231,6 +268,8 @@ func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
 		return nil, nil
 	}
 
+	logger.V(1).Info("get listener names", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "listenerNames", listenerNames)
+
 	return listenerNames, nil
 }
 
@@ -261,6 +300,7 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 	// If listener name is empty, then return empty
 	// This situation should be considered normal, because the listener function is optional.
 	if listenerNames == nil {
+		logger.V(1).Info("can not find any listener name, this may be normal, because the listener function is optional")
 		return nil, nil
 	}
 
@@ -276,13 +316,23 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 				addresses = append(addresses, Address{
 					Hostname: ingressAddress.Address,
 				})
+				logger.V(1).Info("get listener address", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+					"listenerName", listenerName, "address", ingressAddress.Address)
 			} else if ingressAddress.AddressType == listenersv1alpha1.AddressTypeIP {
+				ip := net.ParseIP(ingressAddress.Address)
+				if ip == nil {
+					return nil, fmt.Errorf("invalid listener ip: %s from listener %s", ingressAddress.Address, listenerName)
+				}
 				addresses = append(addresses, Address{
-					IP: net.IP(ingressAddress.Address),
+					IP: ip,
 				})
+				logger.V(1).Info("get listener address", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+					"listenerName", listenerName, "address", ingressAddress.Address)
 			}
 		}
 	}
+
+	logger.V(1).Info("get listener addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "addresses", addresses)
 
 	return addresses, nil
 }

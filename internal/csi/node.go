@@ -2,6 +2,7 @@ package csi
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -113,7 +114,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if err := n.updatePod(pod.DeepCopy(), secretContent.ExpiresTime); err != nil {
+	if err := n.updatePod(ctx, pod.DeepCopy(), secretContent.ExpiresTime); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -124,7 +125,8 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 // If the new expiration time is closer to the current time, update the pod annotation
 // with the new expiration time. Otherwise, do nothing, meaning the pod annotation
 // keeps the old expiration time.
-func (n *NodeServer) updatePod(pod *corev1.Pod, expiresTime *int64) error {
+func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, expiresTime *int64) error {
+	patch := client.MergeFrom(pod.DeepCopy())
 	var err error
 	if expiresTime == nil {
 		return nil
@@ -132,26 +134,36 @@ func (n *NodeServer) updatePod(pod *corev1.Pod, expiresTime *int64) error {
 
 	var existExpiresTime int64 = 0
 
-	existExpiresTimeStr := pod.Annotations[volume.SecretZncdataExpirationTime]
-	if existExpiresTimeStr != "" {
+	existExpiresTimeStr, found := pod.Annotations[volume.SecretZncdataExpirationTime]
+
+	if found && existExpiresTimeStr != "" {
+
 		existExpiresTime, err = strconv.ParseInt(existExpiresTimeStr, 10, 64)
 		if err != nil {
 			return err
 		}
+
+		// if the new expiration time is closer to the current time, update the pod annotation
+		// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
+		// keeps the old expiration time.
+		if *expiresTime > existExpiresTime {
+			return nil
+		}
+
+		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
+
+		logger.V(5).Info("Pod annotation updated", "pod", pod.Name, "expiresTime", expiresTime)
+
+	} else {
+		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
+
+		logger.V(5).Info("Pod annotation added", "pod", pod.Name, "expiresTime", expiresTime)
 	}
 
-	// if the new expiration time is closer to the current time, update the pod annotation
-	// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
-	// keeps the old expiration time.
-	if *expiresTime > existExpiresTime {
-		return nil
-	}
-
-	pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
-	if err := n.client.Update(context.Background(), pod); err != nil {
+	if err := n.client.Patch(ctx, pod, patch); err != nil {
 		return err
 	}
-
+	logger.V(5).Info("Pod patched", "pod", pod.Name)
 	return nil
 
 }
@@ -161,10 +173,13 @@ func (n *NodeServer) updatePod(pod *corev1.Pod, expiresTime *int64) error {
 // The key is the file name, and the value is the file content.
 func (n *NodeServer) writeData(targetPath string, data map[string]string) error {
 	for name, content := range data {
-		if err := os.WriteFile(filepath.Join(targetPath, name), []byte(content), fs.FileMode(0644)); err != nil {
+		fileName := filepath.Join(targetPath, name)
+		if err := os.WriteFile(fileName, []byte(content), fs.FileMode(0644)); err != nil {
 			return err
 		}
+		logger.V(5).Info("File written", "file", fileName)
 	}
+	logger.V(5).Info("Data written", "target", targetPath)
 	return nil
 }
 
@@ -180,11 +195,15 @@ func (n *NodeServer) mount(targetPath string) error {
 	// if not, create the target path
 	// if exists, return error
 	if exist, err := mount.PathExists(targetPath); err != nil {
+		logger.Error(err, "failed to check if target path exists", "target", targetPath)
 		return status.Error(codes.Internal, err.Error())
 	} else if exist {
-		return status.Error(codes.Internal, "target path already exists")
+		err := errors.New("target path already exists")
+		logger.Error(err, "failed to create target path", "target", targetPath)
+		return status.Error(codes.Internal, err.Error())
 	} else {
 		if err := os.MkdirAll(targetPath, 0750); err != nil {
+			logger.Error(err, "failed to create target path", "target", targetPath)
 			return status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -199,7 +218,7 @@ func (n *NodeServer) mount(targetPath string) error {
 	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", opts); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-
+	logger.V(1).Info("Volume mounted", "source", "tmpfs", "target", targetPath, "fsType", "tmpfs", "options", opts)
 	return nil
 }
 
@@ -220,7 +239,7 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 	if err := n.mounter.Unmount(targetPath); err != nil {
 		// FIXME: use status.Error to return error
 		// return nil, status.Error(codes.Internal, err.Error())
-		log.V(1).Info("Volume not found, skip delete volume")
+		logger.V(0).Info("Volume not found, skip delete volume")
 	}
 
 	// remove the target path

@@ -286,6 +286,7 @@ func (c *CertificateManager) GetCertificateAuthority(
 			certificateAuthority = ca
 		}
 	}
+	logger.V(5).Info("Get certificate authority to issue cert", "serialNumber", certificateAuthority.SerialNumber(), "notAfter", certificateAuthority.Certificate.NotAfter)
 
 	return certificateAuthority, nil
 }

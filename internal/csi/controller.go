@@ -54,12 +54,15 @@ func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.Create
 	c.volumes[request.Name] = requiredCap
 
 	if request.Parameters["secretFinalizer"] == "true" {
-		log.V(1).Info("Finalizer is true")
+		logger.V(1).Info("Finalizer is true")
 	}
 
 	// requests.parameters is StorageClass.Parameters, which is set by user when creating PVC.
-	// When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
-	// 'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
+	// When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container,
+	// we also can get:
+	// - 'csi.storage.k8s.io/pv/name'
+	// - 'csi.storage.k8s.io/pvc/name'
+	// - 'csi.storage.k8s.io/pvc/namespace'
 	// ref: https://github.com/kubernetes-csi/external-provisioner?tab=readme-ov-file#command-line-options
 	volumeSelector, err := c.getVolumeContext(request.Parameters)
 
@@ -152,13 +155,13 @@ func (c *ControllerServer) DeleteVolume(ctx context.Context, request *csi.Delete
 	}
 
 	if !dynamic {
-		log.V(5).Info("Volume is not dynamic, skip delete volume")
+		logger.V(5).Info("Volume is not dynamic, skip delete volume")
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
 	if _, ok := c.volumes[request.VolumeId]; !ok {
 		// return nil, status.Errorf(codes.NotFound, "Volume ID: %q", request.VolumeId)
-		log.V(1).Info("Volume not found, skip delete volume")
+		logger.V(1).Info("Volume not found, skip delete volume")
 	}
 
 	return &csi.DeleteVolumeResponse{}, nil

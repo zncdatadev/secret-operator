@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	log = ctrl.Log.WithName("csi-driver")
+	logger = ctrl.Log.WithName("csi-driver")
 )
 
 type Driver struct {
@@ -47,7 +47,7 @@ func NewDriver(
 
 func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
-	log.V(1).Info("Driver information", "versionInfo", version.GetVersion(d.name))
+	logger.V(1).Info("Driver information", "versionInfo", version.GetVersion(d.name))
 
 	// check node id
 	if d.nodeID == "" {
@@ -72,7 +72,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 	}()
 
 	d.server.Wait()
-	log.Info("Server stopped")
+	logger.Info("Server stopped")
 	return nil
 }
 
