@@ -11,9 +11,6 @@ spec:
     args:
     - tail
     - -f
-    securityContext:
-      privileged: true
-      runAsUser: 0
     resources:
       limits:
         memory: "128Mi"
@@ -46,8 +43,6 @@ spec:
     volumeMounts:
     - name: secret
       mountPath: /opt/zncdata/secret
-    - name: listener
-      mountPath: /opt/zncdata/listener
   volumes:
   - name: secret
     ephemeral:
@@ -61,18 +56,6 @@ spec:
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: secrets.zncdata.dev
-          resources:
-            requests:
-              storage: 1Mi
-  - name: listener
-    ephemeral:
-      volumeClaimTemplate:
-        metadata:
-          annotations:
-            listeners.zncdata.dev/listener-class: cluster-internal
-        spec:
-          accessModes: ["ReadWriteOnce"]
-          storageClassName: listeners.zncdata.dev
           resources:
             requests:
               storage: 1Mi

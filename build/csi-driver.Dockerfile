@@ -16,6 +16,7 @@ RUN go mod download
 COPY cmd/csi_driver/main.go cmd/csi_driver/main.go
 COPY api/ api/
 COPY internal/csi/ internal/csi/
+COPY pkg/ pkg/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command

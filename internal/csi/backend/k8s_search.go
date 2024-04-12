@@ -89,7 +89,7 @@ func (k *K8sSearchBackend) getSecret(
 
 	secret := &objs.Items[0]
 
-	log.V(5).Info("found secret total, use first", "total", len(objs.Items), "secret", secret.Name, "namespace", secret.Namespace)
+	logger.V(5).Info("found secret total, use first", "total", len(objs.Items), "secret", secret.Name, "namespace", secret.Namespace)
 
 	return secret, nil
 }

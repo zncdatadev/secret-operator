@@ -14,6 +14,14 @@ import (
 	"github.com/zncdata-labs/secret-operator/internal/csi/backend/ca"
 )
 
+const (
+	KeystoreP12FileName   = "keystore.p12"
+	TruststoreP12FileName = "truststore.p12"
+	PEMTlsCertFileName    = "tls.crt"
+	PEMTlsKeyFileName     = "tls.key"
+	PEMCaCertFileName     = "ca.crt"
+)
+
 type AutoTlsBackend struct {
 	client                 client.Client
 	podInfo                *pod_info.PodInfo
@@ -59,6 +67,7 @@ func (a *AutoTlsBackend) certificateConvert(serverCert *ca.Certificate, caCert *
 	format := a.certificateFormat()
 
 	if format == volume.SecretFormatTLSP12 {
+		logger.Info("Converting certificate to PKCS12 format")
 		password := a.volumeSelector.TlsPKCS12Password
 		cas := []*x509.Certificate{caCert.Certificate}
 
@@ -71,14 +80,15 @@ func (a *AutoTlsBackend) certificateConvert(serverCert *ca.Certificate, caCert *
 			return nil, err
 		}
 		return map[string]string{
-			"keystore.p12": string(keyStore),
-			"trustore.p12": string(truststore),
+			KeystoreP12FileName:   string(keyStore),
+			TruststoreP12FileName: string(truststore),
 		}, nil
 	}
+	logger.Info("Converting certificate to PEM format")
 	return map[string]string{
-		"tls.crt": string(serverCert.CertificatePEM()),
-		"tls.key": string(serverCert.PrivateKeyPEM()),
-		"ca.crt":  string(caCert.CertificatePEM()),
+		PEMTlsCertFileName: string(serverCert.CertificatePEM()),
+		PEMTlsKeyFileName:  string(serverCert.PrivateKeyPEM()),
+		PEMCaCertFileName:  string(caCert.CertificatePEM()),
 	}, nil
 }
 
@@ -116,11 +126,11 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		return nil, err
 	}
 
-	unixTime := time.Now().Unix()
+	expiresTime := notAfter.Unix()
 
 	return &util.SecretContent{
 		Data:        data,
-		ExpiresTime: &unixTime,
+		ExpiresTime: &expiresTime,
 	}, nil
 }
 

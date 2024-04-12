@@ -126,23 +126,26 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 // with the new expiration time. Otherwise, do nothing, meaning the pod annotation
 // keeps the old expiration time.
 func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, expiresTime *int64) error {
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
 	patch := client.MergeFrom(pod.DeepCopy())
 	var err error
 	if expiresTime == nil {
+		logger.V(5).Info("Expiration time is nil, skip update pod annotation", "pod", pod.Name)
 		return nil
 	}
 
-	var existExpiresTime int64 = 0
+	existExpiresTime := int64(0)
 
 	existExpiresTimeStr, found := pod.Annotations[volume.SecretZncdataExpirationTime]
 
 	if found && existExpiresTimeStr != "" {
-
 		existExpiresTime, err = strconv.ParseInt(existExpiresTimeStr, 10, 64)
 		if err != nil {
 			return err
 		}
-
+		logger.V(5).Info("Pod annotation found", "pod", pod.Name, "expiresTime", existExpiresTime)
 		// if the new expiration time is closer to the current time, update the pod annotation
 		// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
 		// keeps the old expiration time.
@@ -151,12 +154,9 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, expiresTime
 		}
 
 		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
-
 		logger.V(5).Info("Pod annotation updated", "pod", pod.Name, "expiresTime", expiresTime)
-
 	} else {
 		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
-
 		logger.V(5).Info("Pod annotation added", "pod", pod.Name, "expiresTime", expiresTime)
 	}
 
@@ -165,7 +165,6 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, expiresTime
 	}
 	logger.V(5).Info("Pod patched", "pod", pod.Name)
 	return nil
-
 }
 
 // writeData writes the data to the target path.

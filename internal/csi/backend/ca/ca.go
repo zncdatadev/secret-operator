@@ -155,6 +155,7 @@ func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Cer
 		return nil, err
 	}
 
+	logger.V(0).Info("Signed certificate", "commonName", template.Subject.CommonName, "notAfter", cert.NotAfter)
 	return &Certificate{
 		Certificate: cert,
 		PrivateKey:  privateKey,

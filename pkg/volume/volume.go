@@ -243,7 +243,6 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 			v.AutoTlsCertJitterFactor = float64(i)
 		default:
 			logger.V(0).Info("Unknown key, skip it", "key", key, "value", value)
-
 		}
 	}
 	return v, nil

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	log = ctrl.Log.WithName("csi-backend")
+	logger = ctrl.Log.WithName("csi-backend")
 )
 
 type IBackend interface {
