@@ -9,6 +9,8 @@ require (
 	github.com/kubernetes-csi/csi-test/v5 v5.2.0
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
+	github.com/zncdata-labs/listener-operator v0.0.0-20240407071403-b23ccc6f44ee
+	golang.org/x/crypto v0.19.0
 	google.golang.org/grpc v1.62.1
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
@@ -22,6 +24,7 @@ require (
 	emperror.dev/errors v0.8.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
+	software.sslmate.com/src/go-pkcs12 v0.4.0 // indirect
 )
 
 require (

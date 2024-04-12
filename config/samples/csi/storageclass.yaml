@@ -3,7 +3,6 @@ kind: StorageClass
 metadata:
   name: secrets.zncdata.dev
   labels:
-    zncdata.dev/vendor: zncdata-labs
     zncdata.dev/kind: storageclass
 provisioner: secrets.zncdata.dev
 parameters:

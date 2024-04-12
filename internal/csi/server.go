@@ -11,7 +11,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 
-	"github.com/zncdata-labs/secret-operator/internal/csi/util"
+	"github.com/zncdata-labs/secret-operator/pkg/util"
 )
 
 // NonBlockingServer Defines Non blocking GRPC server interfaces
@@ -66,19 +66,19 @@ func (s *nonBlockingServer) serveGrpc(endpoint string, ids csi.IdentityServer, c
 
 	proto, addr, err := util.ParseEndpoint(endpoint)
 	if err != nil {
-		log.Error(err, "Failed to parse endpoint")
+		logger.Error(err, "Failed to parse endpoint")
 	}
 
 	if proto == "unix" {
 		addr = "/" + addr
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			log.V(1).Info("Failed to remove", "addr", addr, "error", err.Error())
+			logger.V(0).Info("Failed to remove", "addr", addr, "error", err.Error())
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
-		log.Error(err, "Failed to listen")
+		logger.Error(err, "Failed to listen")
 	}
 
 	if ids != nil {
@@ -103,11 +103,11 @@ func (s *nonBlockingServer) serveGrpc(endpoint string, ids csi.IdentityServer, c
 		}()
 	}
 
-	log.Info("Listening for connections on address", "address", listener.Addr())
+	logger.V(0).Info("Listening for connections on address", "address", listener.Addr())
 
 	reflection.Register(s.grpcSrv)
 	err = s.grpcSrv.Serve(listener)
 	if err != nil {
-		log.Error(err, "Failed to serve grpc server")
+		logger.Error(err, "Failed to serve grpc server")
 	}
 }

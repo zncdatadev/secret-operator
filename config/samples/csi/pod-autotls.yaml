@@ -1,13 +1,16 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: nginx-pod
+  name: pod-auto-tls
   labels:
-    name: nginx-pod
+    name: pod-auto-tls
 spec:
   containers:
-  - name: nginx-pod
-    image: nginx
+  - name: pod-auto-tls
+    image: azul/zulu-openjdk:8-latest
+    args:
+    - tail
+    - -f
     securityContext:
       privileged: true
       runAsUser: 0
@@ -31,7 +34,9 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: k8s-search
+            secrets.zncdata.dev/class: auto-tls
+            secrets.zncdata.dev/format: tls-p12
+            secrets.zncdata.dev/tlsPKCS12Password: foo
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: secrets.zncdata.dev

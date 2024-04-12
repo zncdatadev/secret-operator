@@ -2,6 +2,7 @@ package csi
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,7 +18,9 @@ import (
 
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
 	secretbackend "github.com/zncdata-labs/secret-operator/internal/csi/backend"
-	"github.com/zncdata-labs/secret-operator/internal/csi/util"
+
+	"github.com/zncdata-labs/secret-operator/pkg/pod_info"
+	"github.com/zncdata-labs/secret-operator/pkg/volume"
 )
 
 var _ csi.NodeServer = &NodeServer{}
@@ -46,7 +49,6 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	}
 
 	targetPath := request.GetTargetPath()
-
 	if targetPath == "" {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
@@ -61,42 +63,43 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	//   - storage.kubernetes.io/csiProvisionerIdentity: <provisioner-identity>
 	//   - volume.kubernetes.io/storage-provisioner: <provisioner-name>
 	//   - volume.beta.kubernetes.io/storage-provisioner: <provisioner-name>
-	// If need more information about PVC, you should pass it to CreateVolumeResponse.Volume.VolumeContext
+	// If you need more information about PVC, you should pass it to CreateVolumeResponse.Volume.VolumeContext
 	// when called CreateVolume response in the controller side. Then use them here.
 	// In this csi, we can get PVC annotations from volume context,
-	// because we delivery it from controller to node already.
+	// because we deliver it from controller to node already.
 	// The following PVC annotations is required:
 	//   - secrets.zncdata.dev/class: <secret-class-name>
-	volumeContext := util.NewVolumeContextFromMap(request.GetVolumeContext())
-
-	if volumeContext.SecretClassName == nil {
+	volumeSelector, err := volume.NewVolumeSelectorFromMap(request.GetVolumeContext())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if volumeSelector.Class == "" {
 		return nil, status.Error(codes.InvalidArgument, "Secret class name missing in request")
 	}
 
 	secretClass := &secretsv1alpha1.SecretClass{}
-
 	// get the secret class
 	// SecretClass is cluster coped, so we don't need to specify the namespace
 	if err := n.client.Get(ctx, client.ObjectKey{
-		Name: *volumeContext.SecretClassName,
+		Name: volumeSelector.Class,
 	}, secretClass); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	pod := &corev1.Pod{}
-
 	// get the pod
 	if err := n.client.Get(ctx, client.ObjectKey{
-		Name:      *volumeContext.Pod,
-		Namespace: *volumeContext.PodNamespace,
+		Name:      volumeSelector.Pod,
+		Namespace: volumeSelector.PodNamespace,
 	}, pod); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// get the secret data
-	backend := secretbackend.NewBackend(n.client, secretClass.DeepCopy(), pod.DeepCopy(), volumeContext)
-	secretContent, err := backend.GetSecretData(ctx)
+	podInfo := pod_info.NewPodInfo(n.client, pod, volumeSelector)
 
+	// get the secret data
+	backend := secretbackend.NewBackend(n.client, podInfo, volumeSelector, secretClass)
+	secretContent, err := backend.GetSecretData(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -106,12 +109,12 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, err
 	}
 
-	if err := n.updatePod(pod.DeepCopy(), secretContent.ExpiresTime); err != nil {
+	// write the secret data to the target path
+	if err := n.writeData(targetPath, secretContent.Data); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// write the secret data to the target path
-	if err := n.writeData(targetPath, secretContent.Data); err != nil {
+	if err := n.updatePod(ctx, pod.DeepCopy(), secretContent.ExpiresTime); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -122,45 +125,60 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 // If the new expiration time is closer to the current time, update the pod annotation
 // with the new expiration time. Otherwise, do nothing, meaning the pod annotation
 // keeps the old expiration time.
-func (N *NodeServer) updatePod(pod *corev1.Pod, expiresTime *int64) error {
-
+func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, expiresTime *int64) error {
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	patch := client.MergeFrom(pod.DeepCopy())
+	var err error
 	if expiresTime == nil {
+		logger.V(5).Info("Expiration time is nil, skip update pod annotation", "pod", pod.Name)
 		return nil
 	}
 
-	existExpiresTimeStr := pod.Annotations["secrets.zncdata.dev/expiration-time"]
-	existExpiresTime, err := strconv.ParseInt(existExpiresTimeStr, 10, 64)
+	existExpiresTime := int64(0)
 
-	if err != nil {
+	existExpiresTimeStr, found := pod.Annotations[volume.SecretZncdataExpirationTime]
+
+	if found && existExpiresTimeStr != "" {
+		existExpiresTime, err = strconv.ParseInt(existExpiresTimeStr, 10, 64)
+		if err != nil {
+			return err
+		}
+		logger.V(5).Info("Pod annotation found", "pod", pod.Name, "expiresTime", existExpiresTime)
+		// if the new expiration time is closer to the current time, update the pod annotation
+		// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
+		// keeps the old expiration time.
+		if *expiresTime > existExpiresTime {
+			return nil
+		}
+
+		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
+		logger.V(5).Info("Pod annotation updated", "pod", pod.Name, "expiresTime", expiresTime)
+	} else {
+		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
+		logger.V(5).Info("Pod annotation added", "pod", pod.Name, "expiresTime", expiresTime)
+	}
+
+	if err := n.client.Patch(ctx, pod, patch); err != nil {
 		return err
 	}
-
-	// if the new expiration time is closer to the current time, update the pod annotation
-	// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
-	// keeps the old expiration time.
-	if *expiresTime > existExpiresTime {
-		return nil
-	}
-
-	pod.Annotations["secrets.zncdata.dev/expiration-time"] = strconv.FormatInt(*expiresTime, 10)
-
-	if err := N.client.Update(context.Background(), pod); err != nil {
-		return err
-	}
-
+	logger.V(5).Info("Pod patched", "pod", pod.Name)
 	return nil
-
 }
 
 // writeData writes the data to the target path.
 // The data is a map of key-value pairs.
 // The key is the file name, and the value is the file content.
-func (N *NodeServer) writeData(targetPath string, data map[string]string) error {
+func (n *NodeServer) writeData(targetPath string, data map[string]string) error {
 	for name, content := range data {
-		if err := os.WriteFile(filepath.Join(targetPath, name), []byte(content), fs.FileMode(0644)); err != nil {
+		fileName := filepath.Join(targetPath, name)
+		if err := os.WriteFile(fileName, []byte(content), fs.FileMode(0644)); err != nil {
 			return err
 		}
+		logger.V(5).Info("File written", "file", fileName)
 	}
+	logger.V(5).Info("Data written", "target", targetPath)
 	return nil
 }
 
@@ -176,11 +194,15 @@ func (n *NodeServer) mount(targetPath string) error {
 	// if not, create the target path
 	// if exists, return error
 	if exist, err := mount.PathExists(targetPath); err != nil {
+		logger.Error(err, "failed to check if target path exists", "target", targetPath)
 		return status.Error(codes.Internal, err.Error())
 	} else if exist {
-		return status.Error(codes.Internal, "target path already exists")
+		err := errors.New("target path already exists")
+		logger.Error(err, "failed to create target path", "target", targetPath)
+		return status.Error(codes.Internal, err.Error())
 	} else {
 		if err := os.MkdirAll(targetPath, 0750); err != nil {
+			logger.Error(err, "failed to create target path", "target", targetPath)
 			return status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -195,7 +217,7 @@ func (n *NodeServer) mount(targetPath string) error {
 	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", opts); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-
+	logger.V(1).Info("Volume mounted", "source", "tmpfs", "target", targetPath, "fsType", "tmpfs", "options", opts)
 	return nil
 }
 
@@ -216,7 +238,7 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 	if err := n.mounter.Unmount(targetPath); err != nil {
 		// FIXME: use status.Error to return error
 		// return nil, status.Error(codes.Internal, err.Error())
-		log.V(1).Info("Volume not found, skip delete volume")
+		logger.V(0).Info("Volume not found, skip delete volume")
 	}
 
 	// remove the target path
@@ -279,7 +301,7 @@ func (n *NodeServer) NodeGetVolumeStats(ctx context.Context, request *csi.NodeGe
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (n NodeServer) NodeExpandVolume(ctx context.Context, request *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+func (n *NodeServer) NodeExpandVolume(ctx context.Context, request *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 

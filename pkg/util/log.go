@@ -3,7 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
-	"strings"
+	"runtime/debug"
 
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
@@ -11,18 +11,8 @@ import (
 )
 
 var (
-	log = ctrl.Log.WithName("csi-util")
+	log = ctrl.Log.WithName("csi-grpc")
 )
-
-func ParseEndpoint(ep string) (string, string, error) {
-	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
-		s := strings.SplitN(ep, "://", 2)
-		if s[1] != "" {
-			return s[0], s[1], nil
-		}
-	}
-	return "", "", fmt.Errorf("invalid endpoint: %v", ep)
-}
 
 func GetLogLevel(method string) int {
 	if method == "/csi.v1.Identity/Probe" ||
@@ -40,6 +30,11 @@ func LogGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 	resp, err := handler(ctx, req)
 	if err != nil {
 		log.Error(err, "GRPC called error", "method", info.FullMethod)
+		if level >= 5 {
+			stack := debug.Stack()
+			errStack := fmt.Errorf("\n%s", stack)
+			log.Error(err, "GRPC called error", errStack.Error())
+		}
 	} else {
 		log.V(level).Info("GRPC called", "method", info.FullMethod, "response", protosanitizer.StripSecrets(resp))
 	}

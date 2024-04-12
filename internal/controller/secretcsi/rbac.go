@@ -5,6 +5,7 @@ import (
 	"time"
 
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
+	"github.com/zncdata-labs/secret-operator/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +35,7 @@ func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 
 	sa := r.buildServiceAccount()
 
-	if mutant, err := CreateOrUpdate(ctx, r.client, sa); err != nil {
+	if mutant, err := resource.CreateOrUpdate(ctx, r.client, sa); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -42,7 +43,7 @@ func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 
 	clusterRole := r.buildClusterRole()
 
-	if mutant, err := CreateOrUpdate(ctx, r.client, clusterRole); err != nil {
+	if mutant, err := resource.CreateOrUpdate(ctx, r.client, clusterRole); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -60,7 +61,7 @@ func (r *RBAC) apply(ctx context.Context) (ctrl.Result, error) {
 
 	clusterRoleBinding = r.buildClusterRoleBinding(clusterRoleBinding)
 
-	if mutant, err := CreateOrUpdate(ctx, r.client, clusterRoleBinding); err != nil {
+	if mutant, err := resource.CreateOrUpdate(ctx, r.client, clusterRoleBinding); err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {
 		return ctrl.Result{RequeueAfter: time.Second}, nil

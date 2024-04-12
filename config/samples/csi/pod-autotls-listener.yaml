@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-auto-tls-listener
+  labels:
+    name: pod-auto-tls-listener
+spec:
+  containers:
+  - name: pod-auto-tls-listener
+    image: azul/zulu-openjdk:8-latest
+    args:
+    - tail
+    - -f
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    ports:
+    - containerPort: 80
+      name: http
+    readinessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Check if keystore and truststore exist
+          if [ ! -f /opt/zncdata/secret/keystore.p12 ] || [ ! -f /opt/zncdata/secret/truststore.p12 ]; then
+            echo "Keystore or truststore does not exist." >&2
+            exit 1
+          fi
+          # Check if keystore contains more than 0 entries
+          # Note: you shoule replace 'foo' with the 'secrets.zncdata.dev/tlsPKCS12Password' value
+          entryCount=$(keytool -list -keystore /opt/zncdata/secret/keystore.p12 -storepass foo | grep 'Your keystore contains' | awk '{print $4}')
+          if [ $entryCount -gt 0 ]; then
+              echo "Keystore contains more than 0 entries."
+          else
+              echo "Keystore contains 0 entries." >&2
+              exit 1
+          fi
+      initialDelaySeconds: 1
+      periodSeconds: 5
+    volumeMounts:
+    - name: secret
+      mountPath: /opt/zncdata/secret
+    - name: listener
+      mountPath: /opt/zncdata/listener
+  volumes:
+  - name: secret
+    ephemeral:
+      volumeClaimTemplate:
+        metadata:
+          annotations:
+            secrets.zncdata.dev/class: auto-tls
+            secrets.zncdata.dev/format: tls-p12
+            secrets.zncdata.dev/scope: pod,node
+            secrets.zncdata.dev/tlsPKCS12Password: foo
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: secrets.zncdata.dev
+          resources:
+            requests:
+              storage: 1Mi
+  - name: listener
+    ephemeral:
+      volumeClaimTemplate:
+        metadata:
+          annotations:
+            listeners.zncdata.dev/listener-class: cluster-internal
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: listeners.zncdata.dev
+          resources:
+            requests:
+              storage: 1Mi

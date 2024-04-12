@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/zncdata-labs/secret-operator/internal/csi/util"
+	"github.com/zncdata-labs/secret-operator/pkg/volume"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +41,7 @@ func NewControllerServer(client client.Client) *ControllerServer {
 	}
 }
 
-func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	if err := validateCreateVolumeRequest(request); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -54,14 +54,17 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 	c.volumes[request.Name] = requiredCap
 
 	if request.Parameters["secretFinalizer"] == "true" {
-		log.V(1).Info("Finalizer is true")
+		logger.V(1).Info("Finalizer is true")
 	}
 
 	// requests.parameters is StorageClass.Parameters, which is set by user when creating PVC.
-	// When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
-	// 'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
+	// When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container,
+	// we also can get:
+	// - 'csi.storage.k8s.io/pv/name'
+	// - 'csi.storage.k8s.io/pvc/name'
+	// - 'csi.storage.k8s.io/pvc/namespace'
 	// ref: https://github.com/kubernetes-csi/external-provisioner?tab=readme-ov-file#command-line-options
-	volumeCtx, err := c.getVolumeContext(request.Parameters)
+	volumeSelector, err := c.getVolumeContext(request.Parameters)
 
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Get secret Volume refer error: %v", err)
@@ -71,7 +74,7 @@ func (c ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateV
 		Volume: &csi.Volume{
 			VolumeId:      request.GetName(),
 			CapacityBytes: requiredCap,
-			VolumeContext: volumeCtx,
+			VolumeContext: volumeSelector.ToMap(),
 		},
 	}, nil
 }
@@ -96,7 +99,7 @@ func validateCreateVolumeRequest(request *csi.CreateVolumeRequest) error {
 	return nil
 }
 
-func (c ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVolumeClaim, error) {
+func (c *ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := c.client.Get(context.Background(), client.ObjectKey{
 		Namespace: namespace,
@@ -116,7 +119,7 @@ func (c ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVolu
 //     'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
 //   - get PVC by k8s client with PVC name and namespace, then get annotations from PVC.
 //   - get 'secrets.zncdata.dev/class' and 'secrets.zncdata.dev/scope' from PVC annotations.
-func (c ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (map[string]string, error) {
+func (c *ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (*volume.SecretVolumeSelector, error) {
 	pvcName, pvcNameExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/name"]
 	pvcNamespace, pvcNamespaceExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/namespace"]
 
@@ -130,17 +133,16 @@ func (c ControllerServer) getVolumeContext(createVolumeRequestParams map[string]
 		return nil, status.Errorf(codes.NotFound, "PVC: %q, Namespace: %q. Detail: %v", pvcName, pvcNamespace, err)
 	}
 
-	annotations := pvc.GetAnnotations()
-	_, classNameExists := annotations[util.SECRETS_ZNCDATA_CLASS]
+	volumeSelector, err := volume.NewVolumeSelectorFromMap(pvc.GetAnnotations())
 
-	if !classNameExists {
-		return nil, errors.New("required annotations not found in PVC")
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Get secret Volume refer error: %v", err)
 	}
 
-	return annotations, nil
+	return volumeSelector, nil
 }
 
-func (c ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+func (c *ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 
 	if err := c.validateDeleteVolumeRequest(request); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -153,19 +155,19 @@ func (c ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteV
 	}
 
 	if !dynamic {
-		log.V(5).Info("Volume is not dynamic, skip delete volume")
+		logger.V(5).Info("Volume is not dynamic, skip delete volume")
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
 	if _, ok := c.volumes[request.VolumeId]; !ok {
 		// return nil, status.Errorf(codes.NotFound, "Volume ID: %q", request.VolumeId)
-		log.V(1).Info("Volume not found, skip delete volume")
+		logger.V(1).Info("Volume not found, skip delete volume")
 	}
 
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-func (c ControllerServer) validateDeleteVolumeRequest(request *csi.DeleteVolumeRequest) error {
+func (c *ControllerServer) validateDeleteVolumeRequest(request *csi.DeleteVolumeRequest) error {
 	if request.VolumeId == "" {
 		return errors.New("volume ID is required")
 	}
@@ -173,15 +175,15 @@ func (c ControllerServer) validateDeleteVolumeRequest(request *csi.DeleteVolumeR
 	return nil
 }
 
-func (c ControllerServer) ControllerPublishVolume(ctx context.Context, request *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+func (c *ControllerServer) ControllerPublishVolume(ctx context.Context, request *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ControllerUnpublishVolume(ctx context.Context, request *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+func (c *ControllerServer) ControllerUnpublishVolume(ctx context.Context, request *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ValidateVolumeCapabilities(ctx context.Context, request *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+func (c *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, request *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 
 	if request.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID is required")
@@ -200,7 +202,7 @@ func (c ControllerServer) ValidateVolumeCapabilities(ctx context.Context, reques
 	}, nil
 }
 
-func (c ControllerServer) ListVolumes(ctx context.Context, request *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+func (c *ControllerServer) ListVolumes(ctx context.Context, request *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	// impl list volumes
 	var entries []*csi.ListVolumesResponse_Entry
 	for volumeID, size := range c.volumes {
@@ -221,11 +223,11 @@ func (c ControllerServer) ListVolumes(ctx context.Context, request *csi.ListVolu
 
 }
 
-func (c ControllerServer) GetCapacity(ctx context.Context, request *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+func (c *ControllerServer) GetCapacity(ctx context.Context, request *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ControllerGetCapabilities(ctx context.Context, request *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+func (c *ControllerServer) ControllerGetCapabilities(ctx context.Context, request *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 
 	return &csi.ControllerGetCapabilitiesResponse{
 		Capabilities: []*csi.ControllerServiceCapability{
@@ -240,27 +242,27 @@ func (c ControllerServer) ControllerGetCapabilities(ctx context.Context, request
 	}, nil
 }
 
-func (c ControllerServer) CreateSnapshot(ctx context.Context, request *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+func (c *ControllerServer) CreateSnapshot(ctx context.Context, request *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) DeleteSnapshot(ctx context.Context, request *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+func (c *ControllerServer) DeleteSnapshot(ctx context.Context, request *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ListSnapshots(ctx context.Context, request *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+func (c *ControllerServer) ListSnapshots(ctx context.Context, request *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ControllerExpandVolume(ctx context.Context, request *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+func (c *ControllerServer) ControllerExpandVolume(ctx context.Context, request *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+func (c *ControllerServer) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (c ControllerServer) ControllerModifyVolume(ctx context.Context, request *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+func (c *ControllerServer) ControllerModifyVolume(ctx context.Context, request *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 

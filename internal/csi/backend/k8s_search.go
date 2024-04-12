@@ -7,45 +7,59 @@ import (
 	"strings"
 
 	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/internal/csi/util"
+	"github.com/zncdata-labs/secret-operator/pkg/pod_info"
+	"github.com/zncdata-labs/secret-operator/pkg/util"
+	"github.com/zncdata-labs/secret-operator/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type K8sSearchBackend struct {
-	client        client.Client
-	secretClass   *secretsv1alpha1.SecretClass
-	pod           *corev1.Pod
-	volumeContext *util.VolumeContextSpec
+	client          client.Client
+	podInfo         *pod_info.PodInfo
+	volumeSelector  *volume.SecretVolumeSelector
+	searchNamespace *secretsv1alpha1.SearchNamespaceSpec
 }
 
 func NewK8sSearchBackend(
 	client client.Client,
-	secretClass *secretsv1alpha1.SecretClass,
-	pod *corev1.Pod,
-	volumeContext *util.VolumeContextSpec,
-) *K8sSearchBackend {
+	podInfo *pod_info.PodInfo,
+	volumeSelector *volume.SecretVolumeSelector,
+	k8sSearchSpec *secretsv1alpha1.K8sSearchSpec,
+) (*K8sSearchBackend, error) {
+
+	if k8sSearchSpec == nil {
+		return nil, errors.New("k8sSearchSpec is nil in secret class")
+	}
+
+	if k8sSearchSpec.SearchNamespace == nil {
+		return nil, errors.New("searchNamespace is nil in secret class")
+	}
 
 	return &K8sSearchBackend{
-		client:        client,
-		secretClass:   secretClass,
-		pod:           pod,
-		volumeContext: volumeContext,
-	}
+		client:          client,
+		podInfo:         podInfo,
+		volumeSelector:  volumeSelector,
+		searchNamespace: k8sSearchSpec.SearchNamespace,
+	}, nil
 }
 
-func (k *K8sSearchBackend) namespace(searchNamespace *secretsv1alpha1.SearchNamespaceSpec) (*string, error) {
-	if searchNamespace == nil {
+func (k *K8sSearchBackend) GetPod() *corev1.Pod {
+	return k.podInfo.Pod
+}
+
+func (k *K8sSearchBackend) namespace() (*string, error) {
+	if k.searchNamespace == nil {
 		return nil, errors.New("searchNamespace is nil")
 	}
 
-	if searchNamespace.Pod != nil {
-		ns := k.pod.GetNamespace()
+	if k.searchNamespace.Pod != nil {
+		ns := k.GetPod().GetNamespace()
 		return &ns, nil
 	}
 
-	if searchNamespace.Name != nil {
-		return searchNamespace.Name, nil
+	if k.searchNamespace.Name != nil {
+		return k.searchNamespace.Name, nil
 	}
 
 	return nil, errors.New("can not found namespace name in searchNamespace field")
@@ -75,37 +89,34 @@ func (k *K8sSearchBackend) getSecret(
 
 	secret := &objs.Items[0]
 
-	log.V(5).Info("found secret total, use first", "total", len(objs.Items), "secret", secret.Name, "namespace", secret.Namespace)
+	logger.V(5).Info("found secret total, use first", "total", len(objs.Items), "secret", secret.Name, "namespace", secret.Namespace)
 
 	return secret, nil
 }
 
-func (k *K8sSearchBackend) scopes() *[]string {
-	scopesStr := k.volumeContext.Scope
-	if scopesStr == nil {
-		return nil
-	}
-	splitedScopes := strings.Split(*scopesStr, ",")
-	return &splitedScopes
-}
-
+// matchingLabels returns the labels that should be used to search for the secret.
+// The labels are based on the secret class and the volume selector.
 func (k *K8sSearchBackend) matchingLabels() map[string]string {
 	labels := map[string]string{
-		util.SECRETS_ZNCDATA_CLASS: k.secretClass.Name,
+		volume.SecretsZncdataClass: k.volumeSelector.Class,
 	}
 
-	scopes := k.scopes()
+	scope := k.volumeSelector.Scope
+	pod := k.GetPod()
 
-	if scopes != nil {
-		for _, scope := range *scopes {
-			switch scope {
-			case util.SECRETS_SCOPE_NODE:
-				labels[util.SECRETS_ZNCDATA_NODE] = k.pod.Spec.NodeName
-			case util.SECRETS_SCOPE_POD:
-				labels[util.SECRETS_ZNCDATA_POD] = k.pod.GetName()
-			}
-		}
+	if scope.Pod != "" {
+		labels[volume.SecretsZncdataPod] = pod.GetName()
 	}
+
+	if scope.Node != "" {
+		labels[volume.SecretsZncdataNodeName] = pod.Spec.NodeName
+	}
+
+	if scope.Services != nil {
+		labels[volume.SecretsZncdataService] = strings.Join(scope.Services, ",")
+	}
+
+	// TODO: add listener label when listener volume is supported
 
 	return labels
 }
@@ -113,7 +124,7 @@ func (k *K8sSearchBackend) matchingLabels() map[string]string {
 // GetSecretData implements Backend.
 func (k *K8sSearchBackend) GetSecretData(ctx context.Context) (*util.SecretContent, error) {
 
-	namespace, err := k.namespace(k.secretClass.Spec.Backend.K8sSearch.SearchNamespace)
+	namespace, err := k.namespace()
 	if err != nil {
 		return nil, err
 	}
