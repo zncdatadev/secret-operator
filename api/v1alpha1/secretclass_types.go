@@ -26,9 +26,15 @@ type SecretClassSpec struct {
 }
 
 type BackendSpec struct {
-	AutoTls   *AutoTlsSpec   `json:"autoTls,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	AutoTls *AutoTlsSpec `json:"autoTls,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	K8sSearch *K8sSearchSpec `json:"k8sSearch,omitempty"`
-	Kerberos  *KerberosSpec  `json:"kerberos,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Kerberos *KerberosSpec `json:"kerberos,omitempty"`
 }
 
 type AutoTlsSpec struct {
@@ -84,9 +90,11 @@ type SecretClassStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:resource:path=secretclasses,scope=Cluster
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=secretclasses,scope=Cluster
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +operator-sdk:csv:customresourcedefinitions:displayName="Listener Class"
 
 // SecretClass is the Schema for the secretclasses API
 type SecretClass struct {

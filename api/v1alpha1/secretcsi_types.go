@@ -42,10 +42,18 @@ const (
 
 // SecretCSISpec defines the desired state of SecretCSI
 type SecretCSISpec struct {
-	CSIDriver           *CSIDriverSpec           `json:"csiDriver,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	CSIDriver *CSIDriverSpec `json:"csiDriver,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NodeDriverRegistrar *NodeDriverRegistrarSpec `json:"nodeDriverRegistrar,omitempty"`
-	CSIProvisioner      *CSIProvisionerSpec      `json:"csiProvisioner,omitempty"`
-	LivenessProbe       *LivenessProbeSpec       `json:"livenessProbe,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	CSIProvisioner *CSIProvisionerSpec `json:"csiProvisioner,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	LivenessProbe *LivenessProbeSpec `json:"livenessProbe,omitempty"`
 }
 
 type CSIDriverSpec struct {
