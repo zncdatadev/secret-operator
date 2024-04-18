@@ -1,5 +1,5 @@
 ## Append samples of your project ##
 resources:
-- secret_v1alpha1_secretclass.yaml
+- secrets_v1alpha1_secretclass.yaml
 - secrets_v1alpha1_secretcsi.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
