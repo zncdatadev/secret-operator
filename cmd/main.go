@@ -1,5 +1,5 @@
 /*
-Copyright 2024 zncdata-labs.
+Copyright 2024 zncdatadev.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/internal/controller"
-	csicontroller "github.com/zncdata-labs/secret-operator/internal/controller/secretcsi"
+	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
+	"github.com/zncdatadev/secret-operator/internal/controller"
+	csicontroller "github.com/zncdatadev/secret-operator/internal/controller/secretcsi"
 	//+kubebuilder:scaffold:imports
 )
 

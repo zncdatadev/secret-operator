@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/zncdata-labs/secret-operator/pkg/volume"
+	"github.com/zncdatadev/secret-operator/pkg/volume"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"

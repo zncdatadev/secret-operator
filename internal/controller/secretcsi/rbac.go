@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/pkg/resource"
+	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
+	"github.com/zncdatadev/secret-operator/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

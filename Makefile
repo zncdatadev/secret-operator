@@ -1,5 +1,5 @@
 
-ORG_PATH=github.com/zncdata-labs
+ORG_PATH=github.com/zncdatadev
 PROJECT_NAME := secret-operator
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 REPO_PATH=$(ORG_PATH)/$(PROJECT_NAME)

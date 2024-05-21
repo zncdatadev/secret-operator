@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net"
 
-	listenersv1alpha1 "github.com/zncdata-labs/listener-operator/api/v1alpha1"
-	listenerUtil "github.com/zncdata-labs/listener-operator/pkg/util"
-	"github.com/zncdata-labs/secret-operator/pkg/volume"
+	listenersv1alpha1 "github.com/zncdatadev/listener-operator/api/v1alpha1"
+	listenerUtil "github.com/zncdatadev/listener-operator/pkg/util"
+	"github.com/zncdatadev/secret-operator/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
