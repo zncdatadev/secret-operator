@@ -16,7 +16,7 @@ import (
 
 	pkcs12 "software.sslmate.com/src/go-pkcs12"
 
-	"github.com/zncdata-labs/secret-operator/pkg/pod_info"
+	"github.com/zncdatadev/secret-operator/pkg/pod_info"
 )
 
 type PEMkeyPair struct {

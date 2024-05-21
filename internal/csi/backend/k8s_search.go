@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
-	"github.com/zncdata-labs/secret-operator/pkg/pod_info"
-	"github.com/zncdata-labs/secret-operator/pkg/util"
-	"github.com/zncdata-labs/secret-operator/pkg/volume"
+	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
+	"github.com/zncdatadev/secret-operator/pkg/pod_info"
+	"github.com/zncdatadev/secret-operator/pkg/util"
+	"github.com/zncdatadev/secret-operator/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

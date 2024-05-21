@@ -3,9 +3,9 @@ package secret_csi_plugin
 import "path/filepath"
 
 const (
-	CSIServiceAccountName     = "secerts-csi-zncdata-labs"
-	CSIClusterRoleName        = "secrets-csi-zncdata-labs"
-	CSIClusterRoleBindingName = "secrets-csi-zncdata-labs"
+	CSIServiceAccountName     = "secerts-csi-zncdatadev"
+	CSIClusterRoleName        = "secrets-csi-zncdatadev"
+	CSIClusterRoleBindingName = "secrets-csi-zncdatadev"
 )
 
 var (

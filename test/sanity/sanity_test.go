@@ -8,7 +8,7 @@ import (
 	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/zncdata-labs/secret-operator/internal/csi"
+	"github.com/zncdatadev/secret-operator/internal/csi"
 )
 
 const (

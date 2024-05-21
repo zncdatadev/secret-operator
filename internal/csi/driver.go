@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/zncdata-labs/secret-operator/internal/csi/version"
+	"github.com/zncdatadev/secret-operator/internal/csi/version"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/log"

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 zncdata-labs.
+Copyright 2024 zncdatadev.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	secretsv1alpha1 "github.com/zncdata-labs/secret-operator/api/v1alpha1"
+	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 )
 
 const (
