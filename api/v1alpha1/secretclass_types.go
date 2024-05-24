@@ -94,7 +94,7 @@ type SecretClassStatus struct {
 // +kubebuilder:resource:path=secretclasses,scope=Cluster
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:displayName="Listener Class"
+// +operator-sdk:csv:customresourcedefinitions:displayName="Secret Class"
 
 // SecretClass is the Schema for the secretclasses API
 type SecretClass struct {

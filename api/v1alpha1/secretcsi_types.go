@@ -23,7 +23,7 @@ import (
 const (
 
 	// default values
-	CSIPluginImageRepository = "quay.io/zncdata/secret-csi-plugin"
+	CSIPluginImageRepository = "quay.io/zncdatadev/secret-csi-driver"
 	CSIPluginImageTag        = "v0.0.1"
 	CSIPluginImagePullPolicy = "IfNotPresent"
 
@@ -58,7 +58,7 @@ type SecretCSISpec struct {
 
 type CSIDriverSpec struct {
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="quay.io/zncdata/secret-csi-plugin"
+	// +kubebuilder:default:="quay.io/zncdatadev/secret-csi-driver"
 	Repository string `json:"repository,omitempty"`
 
 	// +kubebuilder:validation:Optional

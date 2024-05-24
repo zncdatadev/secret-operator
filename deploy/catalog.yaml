@@ -1,0 +1,13 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: secret-operator-catalog
+  namespace: kubedatastack-operators
+spec:
+  sourceType: grpc
+  image: registry.cn-shanghai.aliyuncs.com/huagang/secret-operator-catalog:latest
+  displayName: kds catalog
+  publisher: zncdatadev
+  updateStrategy:
+    registryPoll:
+      interval: 5m

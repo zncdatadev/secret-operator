@@ -108,10 +108,10 @@ schema: olm.package
 
 ---
 schema: olm.channel
-package: listener-operator
+package: secret-operator
 name: stable
 entries:
-- name: listener-operator.v0.0.1
+- name: secret-operator.v0.0.1
 ---
 schema: olm.bundle
-image: registry.cn-shanghai.aliyuncs.com/huagang/listener-operator-bundle:v0.0.1
+image: quay.io/zncdatadev/secret-operator-bundle:v0.0.1
