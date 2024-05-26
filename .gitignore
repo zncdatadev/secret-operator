@@ -143,12 +143,9 @@ Temporary Items
 .apdisk
 
 # olm
-bundle
 bundle.Dockerfile
 
 **/__debug_*
-
-bundle*
 
 kind-kubeconfig*
 

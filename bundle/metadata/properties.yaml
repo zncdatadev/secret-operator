@@ -1,0 +1,5 @@
+properties:
+- type: olm.package.required
+  value:
+    packageName: listener-operator
+    versionRange: ">=0.0.1"

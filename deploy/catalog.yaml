@@ -5,8 +5,8 @@ metadata:
   namespace: kubedatastack-operators
 spec:
   sourceType: grpc
-  image: registry.cn-shanghai.aliyuncs.com/huagang/secret-operator-catalog:latest
-  displayName: kds catalog
+  image: quay.io/zncdatadev/secret-operator-catalog:latest
+  displayName: kubedata catalog
   publisher: zncdatadev
   updateStrategy:
     registryPoll:

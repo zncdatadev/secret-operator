@@ -353,8 +353,8 @@ catalog-build: catalog-validate ## Build a catalog image.
 	$(CONTAINER_TOOL) build -t ${CATALOG_IMG} -f catalog.Dockerfile .
 
 # Push the catalog image.
-.PHONY: catalog-docker-push
-catalog-docker-push: ## Push a catalog image.
+.PHONY: catalog-push
+catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 .PHONY: catalog-buildx
@@ -363,6 +363,7 @@ catalog-buildx: ## Build and push a catalog image for cross-platform support
 	$(CONTAINER_TOOL) buildx use project-v3-builder
 	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CATALOG_IMG} -f catalog.Dockerfile .
 	$(CONTAINER_TOOL) buildx rm project-v3-builder
+
 ##@ E2E
 
 # kind
@@ -399,14 +400,11 @@ OLM_VERSION ?= v0.27.0
 .PHONY: kind-create
 kind-create: kind ## Create a kind cluster.
 	$(KIND) create cluster --config test/e2e/kind-config.yaml --image $(KIND_IMAGE) --name $(KIND_CLUSTER_NAME) --kubeconfig $(KIND_KUBECONFIG) --wait 120s
-	# make kind-setup KUBECONFIG=$(KIND_KUBECONFIG)
+	make kind-setup
 
 .PHONY: kind-setup
 kind-setup: kind ## setup kind cluster base environment
-	@echo "\nSetup kind cluster base environment, install ingress-nginx and OLM"
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-	kubectl -n ingress-nginx wait deployment ingress-nginx-controller --for=condition=available --timeout=300s
-	curl -sSL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/$(OLM_VERSION)/install.sh | bash -s $(OLM_VERSION)
+	KUBECONFIG=$(KIND_KUBECONFIG) sh -c 'curl -sSL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/$(OLM_VERSION)/install.sh | bash -s $(OLM_VERSION)'
 
 .PHONY: kind-delete
 kind-delete: kind ## Delete a kind cluster.
