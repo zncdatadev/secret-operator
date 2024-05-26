@@ -23,7 +23,7 @@ import (
 const (
 
 	// default values
-	CSIPluginImageRepository = "quay.io/zncdata/secret-csi-plugin"
+	CSIPluginImageRepository = "quay.io/zncdatadev/secret-csi-driver"
 	CSIPluginImageTag        = "v0.0.1"
 	CSIPluginImagePullPolicy = "IfNotPresent"
 
@@ -42,15 +42,23 @@ const (
 
 // SecretCSISpec defines the desired state of SecretCSI
 type SecretCSISpec struct {
-	CSIDriver           *CSIDriverSpec           `json:"csiDriver,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	CSIDriver *CSIDriverSpec `json:"csiDriver,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NodeDriverRegistrar *NodeDriverRegistrarSpec `json:"nodeDriverRegistrar,omitempty"`
-	CSIProvisioner      *CSIProvisionerSpec      `json:"csiProvisioner,omitempty"`
-	LivenessProbe       *LivenessProbeSpec       `json:"livenessProbe,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	CSIProvisioner *CSIProvisionerSpec `json:"csiProvisioner,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	LivenessProbe *LivenessProbeSpec `json:"livenessProbe,omitempty"`
 }
 
 type CSIDriverSpec struct {
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="quay.io/zncdata/secret-csi-plugin"
+	// +kubebuilder:default:="quay.io/zncdatadev/secret-csi-driver"
 	Repository string `json:"repository,omitempty"`
 
 	// +kubebuilder:validation:Optional
