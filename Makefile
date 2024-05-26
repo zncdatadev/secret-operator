@@ -64,7 +64,7 @@ endif
 
 # Set the Operator SDK version to use. By default, what is installed on the system is used.
 # This is useful for CI or a project to utilize a specific version of the operator-sdk toolkit.
-OPERATOR_SDK_VERSION ?= v1.33.0
+OPERATOR_SDK_VERSION ?= v1.34.2
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(REGISTRY)/secret-operator:v$(VERSION)
@@ -167,9 +167,8 @@ PLATFORMS ?= linux/arm64,linux/amd64
 docker-buildx: test ## Build and push docker image for the manager for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build -f build/Dockerfile --push --platform=$(PLATFORMS) --tag ${IMG} .
-	- $(CONTAINER_TOOL) buildx rm project-v3-builder
-	rm Dockerfile.cross
+	$(CONTAINER_TOOL) buildx build -f build/Dockerfile --push --platform=$(PLATFORMS) --tag ${IMG} .
+	$(CONTAINER_TOOL) buildx rm project-v3-builder
 
 ##@ CSIDriver
 
@@ -196,9 +195,8 @@ csi-docker-push: ## Push docker image with the csi driver.
 csi-docker-buildx: ## Build and push docker image for the csi driver for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build -f build/csi-driver.Dockerfile --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} .
-	- $(CONTAINER_TOOL) buildx rm project-v3-builder
-	rm Dockerfile.cross
+	$(CONTAINER_TOOL) buildx build -f build/csi-driver.Dockerfile --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} .
+	$(CONTAINER_TOOL) buildx rm project-v3-builder
 
 ##@ Deployment
 
@@ -237,8 +235,8 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v5.3.0
-CONTROLLER_TOOLS_VERSION ?= v0.13.0
+KUSTOMIZE_VERSION ?= v5.4.2
+CONTROLLER_TOOLS_VERSION ?= v0.15.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
@@ -258,8 +256,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	# after v0.0.0-20240320141353-395cfc7486e6, setup-envtest is require go >= 1.22.0
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240320141353-395cfc7486e6
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 .PHONY: operator-sdk
 OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
@@ -278,6 +275,10 @@ OPERATOR_SDK = $(shell which operator-sdk)
 endif
 endif
 
+# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
+# These images MUST exist in a registry and be pull-able.
+BUNDLE_IMGS ?= $(BUNDLE_IMG)
+
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
@@ -285,23 +286,30 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
+.PHONY: scorecard-test
+scorecard-test: bundle ## Run the scorecard tests
+	$(OPERATOR_SDK) scorecard bundle
+
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
 .PHONY: bundle-buildx
-bundle-buildx: bundle ## Build the bundle image.
+bundle-buildx: ## Build the bundle image.
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' bundle.Dockerfile > bundle.Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${BUNDLE_IMG} -f bundle.Dockerfile .
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${BUNDLE_IMG} -f bundle.Dockerfile.cross .
 	$(CONTAINER_TOOL) buildx rm project-v3-builder
+	rm bundle.Dockerfile.cross
 
 .PHONY: bundle-run
-bundle-run: bundle ## Run the bundle image.
+bundle-run: ## Run the bundle image.
 	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG)
 
 .PHONY: bundle-cleanup
@@ -325,34 +333,38 @@ OPM = $(shell which opm)
 endif
 endif
 
-# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
-# These images MUST exist in a registry and be pull-able.
-BUNDLE_IMGS ?= $(BUNDLE_IMG)
-
 # The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
 CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
 
-# Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
-ifneq ($(origin CATALOG_BASE_IMG), undefined)
-FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
-endif
-
-# Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
-# This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
-# https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
-catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+catalog-build: opm ## Build a catalog manifests.
+	mkdir -p catalog
+	@if ! test -f ./catalog.Dockerfile; then \
+		$(OPM) generate dockerfile catalog; \
+	fi
+	sed -E "s|(image: ).*-bundle:v$(VERSION)|\1$(BUNDLE_IMG)|g" catalog-template.yaml | \
+	$(OPM) alpha render-template basic -o yaml > catalog/catalog.yaml
+
+.PHONY: catalog-docker-build
+catalog-docker-build: ## Build a catalog image.
+	$(CONTAINER_TOOL) build -t ${CATALOG_IMG} -f catalog.Dockerfile .
 
 # Push the catalog image.
-.PHONY: catalog-push
-catalog-push: ## Push a catalog image.
+.PHONY: catalog-docker-push
+catalog-docker-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+.PHONY: catalog-docker-buildx
+catalog-docker-buildx: ## Build and push a catalog image for cross-platform support
+	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
+	$(CONTAINER_TOOL) buildx use project-v3-builder
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -f catalog.Dockerfile --tag ${CATALOG_IMG} .
+	$(CONTAINER_TOOL) buildx rm project-v3-builder
 
 ##@ E2E
 
 # kind
-KIND_VERSION ?= v0.22.0
+KIND_VERSION ?= v0.23.0
 
 KINDTEST_K8S_VERSION ?= 1.26.14
 
@@ -423,7 +435,7 @@ chainsaw-setup: manifests kustomize ## Run the chainsaw setup
 	make docker-build
 	make csi-docker-build
 	$(KIND) --name $(KIND_CLUSTER_NAME) load docker-image $(IMG) $(CSIDRIVER_IMG)
-	make deploy KUBECONFIG=$(KIND_KUBECONFIG)
+	KUBECONFIG=$(KIND_KUBECONFIG) make deploy
 
 .PHONY: chainsaw-test
 chainsaw-test: chainsaw ## Run the chainsaw test
@@ -431,4 +443,4 @@ chainsaw-test: chainsaw ## Run the chainsaw test
 
 .PHONY: chainsaw-cleanup
 chainsaw-cleanup: manifests kustomize ## Run the chainsaw cleanup
-	make undeploy KUBECONFIG=$(KIND_KUBECONFIG)
+	KUBECONFIG=$(KIND_KUBECONFIG) make undeploy 
