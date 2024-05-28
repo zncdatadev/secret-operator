@@ -359,7 +359,7 @@ catalog-docker-push: ## Push a catalog image.
 catalog-buildx: ## Build and push a catalog image for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	$(CONTAINER_TOOL) buildx build -f catalog.Dockerfile --push --tag ${CATALOG_IMG} .
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CATALOG_IMG} -f catalog.Dockerfile .
 	$(CONTAINER_TOOL) buildx rm project-v3-builder
 ##@ E2E
 
