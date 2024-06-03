@@ -5,7 +5,7 @@ go 1.22.3
 require (
 	github.com/container-storage-interface/spec v1.9.0
 	github.com/golang/protobuf v1.5.4
-	github.com/kubernetes-csi/csi-lib-utils v0.17.0
+	github.com/kubernetes-csi/csi-lib-utils v0.18.1
 	github.com/onsi/ginkgo/v2 v2.17.3
 	github.com/onsi/gomega v1.33.0
 	github.com/zncdatadev/listener-operator v0.0.0-20240521093857-96c738598120
