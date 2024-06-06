@@ -1,4 +1,4 @@
-package krb5
+package kreberos
 
 import (
 	"crypto/sha256"

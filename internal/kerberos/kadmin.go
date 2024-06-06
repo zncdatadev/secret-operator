@@ -1,4 +1,4 @@
-package krb5
+package kreberos
 
 import (
 	"os"
@@ -13,26 +13,24 @@ var (
 )
 
 type User struct {
-	Principal string
-	Keytab    string
+	Principal  string
+	KeytabPath string
 }
 
 type Kadmin struct {
 	// ref: https://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/kadm5_acl.html#kadm5-acl-5
 	// Admin user must have permission with "xe" in kadm5.acl
-	Admin      User
-	krb5Config Krb5Config
+	Admin      *User
+	krb5Config *Krb5Config
 }
 
 func NewKadmin(
-	krb5Config Krb5Config,
-	admin User,
+	krb5Config *Krb5Config,
+	admin *User,
 ) *Kadmin {
 	return &Kadmin{
-		Admin: User{
-			Principal: admin.Principal,
-			Keytab:    admin.Keytab,
-		},
+		krb5Config: krb5Config,
+		Admin:      admin,
 	}
 }
 
@@ -48,7 +46,7 @@ func NewKadmin(
 //	have "e" permission in kadm5.acl.
 func (k *Kadmin) Query(query string) (result string, err error) {
 	krb5Path := k.krb5Config.GetTempPath()
-	cmd := exec.Command("kadmin", "-kt", k.Admin.Keytab, "-p", k.Admin.Principal, "query", query)
+	cmd := exec.Command("kadmin", "-kt", k.Admin.KeytabPath, "-p", k.Admin.Principal, "query", query)
 	// https://web.mit.edu/kerberos/krb5-latest/doc/admin/install_kdc.html#edit-kdc-configuration-files
 	cmd.Env = append(os.Environ(), "KRB5_CONFIG="+krb5Path)
 	output, err := cmd.CombinedOutput()
