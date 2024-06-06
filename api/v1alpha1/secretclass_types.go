@@ -34,11 +34,11 @@ type BackendSpec struct {
 	K8sSearch *K8sSearchSpec `json:"k8sSearch,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	Kerberos *KerberosSpec `json:"kerberos,omitempty"`
+	KerberosKeytab *KerberosKeytabSpec `json:"kerberosKeytab,omitempty"`
 }
 
 type AutoTlsSpec struct {
-	CA *CASpec `json:"ca,omitempty"`
+	CA *CASpec `json:"ca"`
 
 	// Use time.ParseDuration to parse the string
 	// Default is 360h (15 days)
@@ -63,17 +63,13 @@ type CASpec struct {
 }
 
 type SecretSpec struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-}
-
-// TODO implement the KerberosSpec
-type KerberosSpec struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 type K8sSearchSpec struct {
 	// +kubebuilder:validation:Required
-	SearchNamespace *SearchNamespaceSpec `json:"searchNamespace,omitempty"`
+	SearchNamespace *SearchNamespaceSpec `json:"searchNamespace"`
 }
 
 type SearchNamespaceSpec struct {
