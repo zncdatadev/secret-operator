@@ -80,7 +80,7 @@ func (p *PodInfo) GetNode(ctx context.Context) (*corev1.Node, error) {
 
 }
 
-func (p *PodInfo) GetNodeIPs(ctx context.Context) ([]Address, error) {
+func (p *PodInfo) GetNodeAddresses(ctx context.Context) ([]Address, error) {
 
 	node, err := p.GetNode(ctx)
 	if err != nil {
@@ -95,9 +95,7 @@ func (p *PodInfo) GetNodeIPs(ctx context.Context) ([]Address, error) {
 			if ip == nil {
 				return nil, fmt.Errorf("invalid node ip: %s from node %s", address.Address, p.GetNodeName())
 			}
-			addresses = append(addresses, Address{
-				IP: ip,
-			})
+			addresses = append(addresses, Address{IP: ip})
 		}
 	}
 
@@ -108,14 +106,14 @@ func (p *PodInfo) GetNodeIPs(ctx context.Context) ([]Address, error) {
 	return addresses, nil
 }
 
-func (p *PodInfo) GetServiceIPsByName(name string) []Address {
-	addresses := []Address{
-		{
-			Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", name, p.GetPodNamespace()),
-		},
-	}
+func (p *PodInfo) GetFQDN(subdomain string) string {
+	return fmt.Sprintf("%s.%s", subdomain, p.GetPodNamespace())
+}
 
-	return addresses
+func (p *PodInfo) GetFQDNAddress(subdomain string) Address {
+	return Address{
+		Hostname: p.GetFQDN(subdomain),
+	}
 }
 
 // Get the address information of the pod.
@@ -126,13 +124,12 @@ func (p *PodInfo) GetPodAddresses() ([]Address, error) {
 	var addresses []Address
 	svcName := p.Pod.Spec.Subdomain
 	if svcName != "" {
-		// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
-		addresses = append(addresses, Address{
-			Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, p.GetPodNamespace()),
-		})
-		addresses = append(addresses, Address{
-			Hostname: fmt.Sprintf("%s.%s.%s.svc.cluster.local", p.GetPodName(), svcName, p.GetPodNamespace()),
-		})
+		// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pods
+		addresses = append(
+			addresses,
+			p.GetFQDNAddress(svcName),
+			p.GetFQDNAddress(fmt.Sprintf("%s.%s", p.GetPodName(), svcName)),
+		)
 	}
 
 	for _, ipStr := range p.GetPodIPs() {
@@ -151,18 +148,19 @@ func (p *PodInfo) GetPodAddresses() ([]Address, error) {
 	return addresses, nil
 }
 
+// Get the address information of the pod according to the scope.
 func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	addresses := []Address{}
 
 	scoped := p.VolumeSelector.Scope
 
 	if scoped.Node == volume.ScopeNode {
-		nodeIps, err := p.GetNodeIPs(ctx)
+		nodeAddresses, err := p.GetNodeAddresses(ctx)
 		if err != nil {
 			return nil, err
 		}
-		addresses = append(addresses, nodeIps...)
-		logger.V(1).Info("get node ip", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "node", p.GetNodeName())
+		addresses = append(addresses, nodeAddresses...)
+		logger.V(1).Info("get node addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "node", p.GetNodeName(), "addresses", nodeAddresses)
 	}
 
 	if scoped.Pod == volume.ScopePod {
@@ -171,17 +169,16 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 			return nil, err
 		}
 		addresses = append(addresses, podAddresses...)
-		logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace())
+		logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "addresses", podAddresses)
 	}
 
 	if scoped.Services != nil {
 		svcAddresses := []Address{}
 		for _, svcName := range scoped.Services {
-			svcAddresses = append(svcAddresses, p.GetServiceIPsByName(svcName)...)
-
+			svcAddresses = append(svcAddresses, p.GetFQDNAddress(svcName))
 		}
 		addresses = append(addresses, svcAddresses...)
-		logger.V(1).Info("get service addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "services", scoped.Services)
+		logger.V(1).Info("get service addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "services", scoped.Services, "addresses", svcAddresses)
 	}
 
 	if scoped.ListenerVolumes != nil {
@@ -190,11 +187,10 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 			return nil, err
 		}
 		addresses = append(addresses, listenerAddresses...)
+		logger.V(1).Info("get listener addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "addresses", listenerAddresses)
 	}
 
-	logger.V(1).Info("get scoped addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
-		"scope", scoped, "addresses", addresses,
-	)
+	logger.V(1).Info("get scoped addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "scope", scoped, "addresses", addresses)
 
 	return addresses, nil
 }
@@ -290,6 +286,7 @@ func (p *PodInfo) getPVC(ctx context.Context, name string) (*corev1.PersistentVo
 	return pvc, nil
 }
 
+// Get listener addresses, listener address might be empty.
 func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 	// get listener names from listener volumes, where listener volume is in the scope of the pod
 	listenerNames, err := p.GetListenerNames(ctx)
@@ -348,18 +345,19 @@ func (p *PodInfo) GetListener(ctx context.Context, name string) (*listenersv1alp
 	return listener, nil
 }
 
+// TODO: in k8sSearch impl, we need to check if the listener is node scope to determine whether to search with node scope label
 func (p *PodInfo) CheckNodeScope(ctx context.Context, listenerVolume string) (bool, error) {
 	scope := p.VolumeSelector.Scope.Node
-	if scope == volume.ScopePod {
+	if scope == volume.ScopeNode {
 		return true, nil
 	}
 
-	isPodScope, err := p.checkNodeScopeByListener(ctx, listenerVolume)
+	isNodeScope, err := p.checkNodeScopeByListener(ctx, listenerVolume)
 	if err != nil {
 		return false, err
 	}
 
-	if isPodScope {
+	if isNodeScope {
 		return true, nil
 	}
 

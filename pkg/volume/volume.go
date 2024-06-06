@@ -107,9 +107,7 @@ const (
 )
 
 type SecretScope struct {
-	// this field is k-k pair, key is pod, value is pod
-	Pod ListScope `json:"pod"`
-	// this field is k-k pair, key is node, value is node
+	Pod  ListScope `json:"pod"`
 	Node ListScope `json:"node"`
 	// this field is k-v pair, key is service name, value is service type
 	Services []string `json:"service"`
