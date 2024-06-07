@@ -89,7 +89,7 @@ func (k *Kadmin) GetAdminKeytabPath() (string, error) {
 //	kadmin -kt admin.keytab -p admin/admin query "listprincs"
 //	kadmin -kt admin.keytab -p admin/admin query "ktadd -k user1.keytab -norandkey user1"
 //
-// Node:
+// Note:
 //
 //	When generating keytab file, use "-norandkey" flag, the admin user must
 //	have "e" permission in kadm5.acl.
