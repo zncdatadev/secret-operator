@@ -10,8 +10,11 @@ import (
 	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	"github.com/zncdatadev/secret-operator/pkg/kerberos"
 	"github.com/zncdatadev/secret-operator/pkg/pod_info"
+	"github.com/zncdatadev/secret-operator/pkg/util"
 	"github.com/zncdatadev/secret-operator/pkg/volume"
 )
+
+var _ IBackend = &KerberosBackend{}
 
 type KerberosBackend struct {
 	client         client.Client
@@ -43,7 +46,7 @@ func (k *KerberosBackend) getKrb5Config() *kerberos.Krb5Config {
 }
 
 // GetSecretData implements Backend.
-func (k *KerberosBackend) GetSecretData(ctx context.Context) (map[string]string, error) {
+func (k *KerberosBackend) GetSecretData(ctx context.Context) (*util.SecretContent, error) {
 	keytab, err := k.provisionKeytab(ctx)
 	if err != nil {
 		return nil, err
@@ -51,9 +54,11 @@ func (k *KerberosBackend) GetSecretData(ctx context.Context) (map[string]string,
 
 	krb5Config := k.getKrb5Config().Content()
 
-	return map[string]string{
-		"keytab":    string(keytab),
-		"krb5.conf": krb5Config,
+	return &util.SecretContent{
+		Data: map[string]string{
+			"keytab":    string(keytab),
+			"krb5.conf": krb5Config,
+		},
 	}, nil
 }
 
@@ -80,7 +85,7 @@ func (k *KerberosBackend) provisionKeytab(ctx context.Context) ([]byte, error) {
 		}
 	}
 
-	keytab, err := kadmin.Ktadd(false, principals...)
+	keytab, err := kadmin.Ktadd(principals...)
 	if err != nil {
 		logger.Error(err, "Failed to create keytab", "principals", principals)
 		return nil, err

@@ -106,8 +106,9 @@ func (p *PodInfo) GetNodeAddresses(ctx context.Context) ([]Address, error) {
 	return addresses, nil
 }
 
+// TODO: Dynamic get cluster domain, currently hard code to cluster.local
 func (p *PodInfo) GetFQDN(subdomain string) string {
-	return fmt.Sprintf("%s.%s", subdomain, p.GetPodNamespace())
+	return fmt.Sprintf("%s.%s.svc.cluster.local", subdomain, p.GetPodNamespace())
 }
 
 func (p *PodInfo) GetFQDNAddress(subdomain string) Address {

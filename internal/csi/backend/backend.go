@@ -45,7 +45,12 @@ func (b *Backend) backendImpl() (IBackend, error) {
 	backend := b.secretClass.Spec.Backend
 
 	if backend.KerberosKeytab != nil {
-		panic("not implemented")
+		return NewKerberosBackend(
+			b.client,
+			b.podInfo,
+			b.volumeSelector,
+			backend.KerberosKeytab,
+		), nil
 	}
 
 	if backend.AutoTls != nil {

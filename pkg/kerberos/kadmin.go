@@ -2,9 +2,13 @@ package kerberos
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
+	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -49,9 +53,8 @@ func (k *Kadmin) GetAdminPrincipal() *string {
 // It returns the admin keytab path and any error encountered during the process.
 func (k *Kadmin) GetAdminKeytabPath() (string, error) {
 	if k.adminKeytabPath == "" {
-		hash := sha256.New()
-		hash.Write(k.adminKeytab)
-		keytabPath := os.TempDir() + "/admin-keytab-" + string(hash.Sum(nil)[:24]) + ".keytab"
+		hash := sha256.Sum256(k.adminKeytab)
+		keytabPath := os.TempDir() + "/admin-keytab-" + hex.EncodeToString(hash[:])[:23] + ".keytab"
 
 		keytab, err := os.Create(keytabPath)
 		if err != nil {
@@ -103,17 +106,16 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 		return "", err
 	}
 
-	cmd := exec.Command("kadmin", "-kt", adminKeytabPath, "-p", *k.GetAdminPrincipal(), "query", query)
+	cmd := exec.Command("kadmin", "-kt", adminKeytabPath, "-p", *k.GetAdminPrincipal(), "-q", query)
 	// https://web.mit.edu/kerberos/krb5-latest/doc/admin/install_kdc.html#edit-kdc-configuration-files
 	cmd.Env = append(os.Environ(), "KRB5_CONFIG="+krb5Path)
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		kadminLogger.Error(err, "Failed to execute kadmin query", "cmd", cmd.String())
-		return "", err
-	}
-
 	result = string(output)
 
+	if err != nil {
+		kadminLogger.Error(err, "Failed to execute kadmin query", "cmd", cmd.String(), "output", result)
+		return "", err
+	}
 	kadminLogger.Info("Executed kadmin query", "cmd", cmd.String(), "output", result)
 
 	return result, nil
@@ -122,24 +124,15 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 
 // Ktadd generates a keytab file for the given principals
 // Usage: ktadd [-k[eytab] keytab] [-q] [-e keysaltlist] [-norandkey] [principal | -glob princ-exp] [...]
-func (k *Kadmin) Ktadd(noRandKey bool, principals ...string) ([]byte, error) {
-
-	keytab, err := os.CreateTemp("", "keytab-")
-	if err != nil {
-		kadminLogger.Error(err, "Failed to create keytab file")
-		return nil, err
-	}
-
-	defer os.Remove(keytab.Name())
+func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
+	keytab := path.Join(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+".keytab")
+	defer os.Remove(keytab)
 
 	queries := []string{
 		"ktadd",
-		"-k", // "-k" flag is used to specify the keytab file
-		keytab.Name(),
-	}
-
-	if noRandKey {
-		queries = append(queries, "-norandkey")
+		"-k",   // "-k" flag is used to specify the keytab file
+		keytab, // keytab file path
+		"-norandkey",
 	}
 
 	queries = append(queries, principals...)
@@ -152,7 +145,7 @@ func (k *Kadmin) Ktadd(noRandKey bool, principals ...string) ([]byte, error) {
 
 	kadminLogger.Info("Saved keytab", "principal", principals, "keytab", keytab, "output", output)
 
-	return os.ReadFile(keytab.Name())
+	return os.ReadFile(keytab)
 }
 
 // AddPrincipal adds a new principal

@@ -2,6 +2,7 @@ package kerberos
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path"
 	"strings"
@@ -67,6 +68,7 @@ func (c *Krb5Config) Content() string {
   ` + c.GetRealm() + ` = {
     kdc = ` + c.KDC + `
     admin_server = ` + c.AdminServer + `
+  }
 
 [domain_realm]
   cluster.local = ` + c.GetRealm() + `
@@ -83,17 +85,16 @@ func (c *Krb5Config) Save(path string) error {
 	return os.WriteFile(path, []byte(c.Content()), 0644)
 }
 
-func (c *Krb5Config) Hash() string {
+func (c *Krb5Config) CheckSum() string {
 	if c.hashed == "" {
-		h := sha256.New()
-		h.Write([]byte(c.Content()))
-		c.hashed = string(h.Sum(nil)[:24])
+		hash := sha256.Sum256([]byte(c.Content()))
+		c.hashed = hex.EncodeToString(hash[:])[:23]
 	}
 	return c.hashed
 }
 
 func (c *Krb5Config) GetTempPath() (string, error) {
-	absFilename := path.Join(os.TempDir(), "krb5-"+c.Hash()+".conf")
+	absFilename := path.Join(os.TempDir(), "krb5-"+c.CheckSum()+".conf")
 
 	if _, err := os.Stat(absFilename); os.IsNotExist(err) {
 		if err := c.Save(absFilename); err != nil {
