@@ -34,10 +34,10 @@ func TestSecretVolumeSelectorToMap(t *testing.T) {
 					Services:        []string{"my-service"},
 					ListenerVolumes: []string{"my-listener-volume"},
 				},
-				Format:              "tls-pem",
-				TlsPKCS12Password:   "my-password",
-				KerberosRealms:      []string{"realm1", "realm2"},
-				AutoTlsCertLifetime: 24 * time.Hour,
+				Format:               "tls-pem",
+				TlsPKCS12Password:    "my-password",
+				KerberosServiceNames: []string{"realm1", "realm2"},
+				AutoTlsCertLifetime:  24 * time.Hour,
 			},
 			want: map[string]string{
 				CSIStoragePodName:                       "my-pod",
@@ -49,7 +49,7 @@ func TestSecretVolumeSelectorToMap(t *testing.T) {
 				SecretsZncdataClass:                     "my-class",
 				SecretsZncdataScope:                     "pod,node,service=my-service,listener-volume=my-listener-volume",
 				SecretsZncdataFormat:                    "tls-pem",
-				SecretsZncdataKerberosRealms:            "realm1,realm2",
+				KerberosServiceNamesSplitter:            "realm1,realm2",
 			},
 		},
 		{
@@ -101,7 +101,7 @@ func TestNewVolumeSelectorFromMap(t *testing.T) {
 				SecretsZncdataClass:                     "my-class",
 				SecretsZncdataScope:                     "pod,node,service=my-service,listener-volume=my-listener-volume",
 				SecretsZncdataFormat:                    "tls-pem",
-				SecretsZncdataKerberosRealms:            "realm1,realm2",
+				KerberosServiceNamesSplitter:            "realm1,realm2",
 			},
 			expected: &SecretVolumeSelector{
 				Pod:                "my-pod",
@@ -117,8 +117,8 @@ func TestNewVolumeSelectorFromMap(t *testing.T) {
 					Services:        []string{"my-service"},
 					ListenerVolumes: []string{"my-listener-volume"},
 				},
-				Format:         "tls-pem",
-				KerberosRealms: []string{"realm1", "realm2"},
+				Format:               "tls-pem",
+				KerberosServiceNames: []string{"realm1", "realm2"},
 			},
 		},
 	}

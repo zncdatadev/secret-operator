@@ -14,7 +14,7 @@ var (
 )
 
 const (
-	KerberosRealmsSplitter string = ","
+	KerberosServiceNamesSplitter string = ","
 )
 
 type SecretFormat string
@@ -69,13 +69,19 @@ const (
 	// - tls-p12 A PKCS#12 archive, include "keystore.p12", "truststore.p12".
 	// - kerberos A Kerberos keytab, include "keytab", "krb5.conf".
 	SecretsZncdataFormat string = "secrets.zncdata.dev/format"
-	// KerberosRealms is the list of Kerberos realms.
+
+	PKCS12Password   string = "secrets.zncdata.dev/tlsPKCS12Password"
+	CertLifeTime     string = "secrets.zncdata.dev/autoTlsCertLifetime"
+	CertJitterFactor string = "secrets.zncdata.dev/autoTlsCertJitterFactor"
+
+	// KerberosServiceNames is the list of Kerberos service names.
 	// It is a comma separated list of Kerberos realms.
-	// For example: "realm1,realm2"
-	SecretsZncdataKerberosRealms string = "secrets.zncdata.dev/kerberosRealms"
-	PKCS12Password               string = "secrets.zncdata.dev/tlsPKCS12Password"
-	CertLifeTime                 string = "secrets.zncdata.dev/autoTlsCertLifetime"
-	CertJitterFactor             string = "secrets.zncdata.dev/autoTlsCertJitterFactor"
+	// For example this filed value: "HTTP,NN,DN"
+	// It is used to create kerberos realm.
+	// 	- HTTP -> HTTP/<k8s-service>.<k8s-namespace>.cluster.local@REALM
+	// 	- NN -> nn/<k8s-service>.<k8s-namespace>.cluster.local@REALM
+	// 	- DN -> dn/<k8s-service>.<k8s-namespace>.cluster.local@REALM
+	SecretsZncdataKerberosServiceNames string = "secrets.zncdata.dev/kerberosServiceNames"
 )
 
 type SecretVolumeSelector struct {
@@ -92,9 +98,10 @@ type SecretVolumeSelector struct {
 	Format SecretFormat `json:"secrets.zncdata.dev/format"`
 
 	TlsPKCS12Password       string        `json:"secrets.zncdata.dev/tlsPKCS12Password"`
-	KerberosRealms          []string      `json:"secrets.zncdata.dev/kerberosRealms"`
 	AutoTlsCertLifetime     time.Duration `json:"secrets.zncdata.dev/autoTlsCertLifetime"`
 	AutoTlsCertJitterFactor float64       `json:"secrets.zncdata.dev/autoTlsCertJitterFactor"`
+
+	KerberosServiceNames []string `json:"secrets.zncdata.dev/kerberosServiceNames"`
 }
 
 type ListScope string
@@ -107,9 +114,7 @@ const (
 )
 
 type SecretScope struct {
-	// this field is k-k pair, key is pod, value is pod
-	Pod ListScope `json:"pod"`
-	// this field is k-k pair, key is node, value is node
+	Pod  ListScope `json:"pod"`
 	Node ListScope `json:"node"`
 	// this field is k-v pair, key is service name, value is service type
 	Services []string `json:"service"`
@@ -146,8 +151,8 @@ func (v SecretVolumeSelector) ToMap() map[string]string {
 	if v.Format != "" {
 		out[SecretsZncdataFormat] = string(v.Format)
 	}
-	if len(v.KerberosRealms) > 0 {
-		out[SecretsZncdataKerberosRealms] = strings.Join(v.KerberosRealms, KerberosRealmsSplitter)
+	if len(v.KerberosServiceNames) > 0 {
+		out[SecretsZncdataKerberosServiceNames] = strings.Join(v.KerberosServiceNames, KerberosServiceNamesSplitter)
 	}
 	if v.TlsPKCS12Password != "" {
 		out[PKCS12Password] = v.TlsPKCS12Password
@@ -225,8 +230,8 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 			v.Scope = v.decodeScope(value)
 		case SecretsZncdataFormat:
 			v.Format = SecretFormat(value)
-		case SecretsZncdataKerberosRealms:
-			v.KerberosRealms = strings.Split(value, KerberosRealmsSplitter)
+		case SecretsZncdataKerberosServiceNames:
+			v.KerberosServiceNames = strings.Split(value, KerberosServiceNamesSplitter)
 		case PKCS12Password:
 			v.TlsPKCS12Password = value
 		case CertLifeTime:
