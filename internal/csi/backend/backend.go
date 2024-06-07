@@ -44,7 +44,7 @@ func (b *Backend) backendImpl() (IBackend, error) {
 
 	backend := b.secretClass.Spec.Backend
 
-	if backend.Kerberos != nil {
+	if backend.KerberosKeytab != nil {
 		panic("not implemented")
 	}
 
