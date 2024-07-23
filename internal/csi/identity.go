@@ -12,6 +12,7 @@ import (
 var _ csi.IdentityServer = &IdentityServer{}
 
 type IdentityServer struct {
+	csi.UnimplementedIdentityServer
 	name    string
 	version string
 }
