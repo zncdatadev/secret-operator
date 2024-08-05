@@ -87,7 +87,11 @@ func (p *PodInfo) GetNodeAddresses(ctx context.Context) ([]Address, error) {
 		return nil, nil
 	}
 
-	addresses := []Address{}
+	addresses := []Address{
+		{
+			Hostname: node.Name,
+		},
+	}
 
 	for _, address := range node.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {

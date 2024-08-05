@@ -123,10 +123,17 @@ func (k *KerberosBackend) getPrincipals(ctx context.Context) ([]string, error) {
 	for _, svcName := range svcNames {
 		for _, addr := range scopedAddresses {
 			hostname := addr.Hostname
+			// only support FQDN
 			if hostname != "" {
-				principals = append(principals, svcName+"/"+hostname+"@"+k.spec.Realm)
+				principal := svcName + "/" + hostname + "@" + k.spec.Realm
+				principals = append(principals, principal)
+				logger.V(1).Info("Add principal", "principal", principal)
 			}
 		}
+	}
+
+	if len(principals) == 0 {
+		return nil, errors.New("no principals found")
 	}
 
 	return principals, nil
