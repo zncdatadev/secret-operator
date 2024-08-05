@@ -186,7 +186,7 @@ csi-run: ## Run csi driver.
 
 .PHONY: csi-docker-build
 csi-docker-build: ## Build docker image with the csi driver.
-	$(CONTAINER_TOOL) build -t ${CSIDRIVER_IMG} -f build/csi-driver.Dockerfile .
+	$(CONTAINER_TOOL) build -t ${CSIDRIVER_IMG} --build-arg LDFLAGS=$(LDFLAGS) -f build/csi-driver.Dockerfile .
 
 
 .PHONY: csi-docker-push
