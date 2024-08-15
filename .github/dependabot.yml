@@ -9,8 +9,14 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      include: scope
+      prefix: build
 
   - package-ecosystem: "docker"
-    directory: "/" # Location of package manifests
+    directory: "/build" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      include: scope
+      prefix: build
