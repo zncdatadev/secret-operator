@@ -1,3 +1,9 @@
+# VERSION defines the project version for the bundle.
+# Update this value when you upgrade the version of your project.
+# To re-generate a bundle for another specific version without changing the standard setup, you can:
+# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
+# - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
+VERSION ?= 0.0.0-dev
 
 ORG_PATH = github.com/zncdatadev
 PROJECT_NAME := secret-operator
@@ -10,13 +16,6 @@ BUILD_TIME_VAR := $(REPO_PATH)/internal/csi/version.BuildTime
 GIT_COMMIT_VAR := $(REPO_PATH)/internal/csi/version.GitCommit
 BUILD_VERSION_VAR := $(REPO_PATH)/internal/csi/version.BuildVersion
 LDFLAGS ?= "-X $(BUILD_TIME_VAR)=$(BUILD_TIMESTAMP) -X $(GIT_COMMIT_VAR)=$(BUILD_COMMIT) -X $(BUILD_VERSION_VAR)=$(VERSION)"
-
-# VERSION defines the project version for the bundle.
-# Update this value when you upgrade the version of your project.
-# To re-generate a bundle for another specific version without changing the standard setup, you can:
-# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
-# - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -69,7 +68,7 @@ endif
 OPERATOR_SDK_VERSION ?= v1.34.2
 
 # Image URL to use all building/pushing image targets
-IMG ?= $(REGISTRY)/secret-operator:v$(VERSION)
+IMG ?= $(REGISTRY)/secret-operator:$(VERSION)
 # ref: https://github.com/kubernetes-sigs/kubebuilder/releases in v3.11.0-v3.14.1 ENVTEST_K8S_VERSION support 1.26.1 and 1.27.1
 ENVTEST_K8S_VERSION ?= 1.26.1
 
@@ -174,7 +173,7 @@ docker-buildx: test ## Build and push docker image for the manager for cross-pla
 
 ##@ CSIDriver
 
-CSIDRIVER_IMG ?= ${REGISTRY}/secret-csi-driver:v$(VERSION)
+CSIDRIVER_IMG ?= ${REGISTRY}/secret-csi-driver:$(VERSION)
 
 .PHONY: csi-build
 csi-build: ## Build csi driver.
@@ -433,7 +432,7 @@ chainsaw-setup: manifests kustomize ## Run the chainsaw setup
 
 .PHONY: chainsaw-test
 chainsaw-test: chainsaw ## Run the chainsaw test
-	$(CHAINSAW) test --cluster cluster-1=$(KIND_KUBECONFIG) --test-dir ./test/e2e
+	KUBECONFIG=$(KIND_KUBECONFIG) $(CHAINSAW) test --test-dir ./test/e2e
 
 .PHONY: chainsaw-cleanup
 chainsaw-cleanup: manifests kustomize ## Run the chainsaw cleanup
