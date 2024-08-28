@@ -50,7 +50,7 @@ IMAGE_TAG_BASE ?= $(REGISTRY)/$(PROJECT_NAME)
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
+BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(VERSION)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
 BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
@@ -336,8 +336,8 @@ endif
 # The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
 CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:latest
 
-.PHONY: catalog-build
-catalog-build: opm ## Build a catalog manifests.
+.PHONY: catalog
+catalog: opm ## Build a catalog manifests.
 	mkdir -p catalog
 	@if ! test -f ./catalog.Dockerfile; then \
 		$(OPM) generate dockerfile catalog; \
@@ -349,17 +349,17 @@ catalog-build: opm ## Build a catalog manifests.
 catalog-validate: ## Validate the catalog image.
 	$(OPM) validate catalog
 
-.PHONY: catalog-docker-build
-catalog-docker-build: ## Build a catalog image.
+.PHONY: catalog-build
+catalog-build: ## Build a catalog image.
 	$(CONTAINER_TOOL) build -t ${CATALOG_IMG} -f catalog.Dockerfile .
 
 # Push the catalog image.
-.PHONY: catalog-docker-push
-catalog-docker-push: ## Push a catalog image.
+.PHONY: catalog-push
+catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-.PHONY: catalog-docker-buildx
-catalog-docker-buildx: ## Build and push a catalog image for cross-platform support
+.PHONY: catalog-buildx
+catalog-buildx: ## Build and push a catalog image for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -f catalog.Dockerfile --tag ${CATALOG_IMG} .
