@@ -113,7 +113,7 @@ schema: olm.channel
 package: secret-operator
 name: stable
 entries:
-- name: secret-operator.v0.0.1
+- name: secret-operator.v0.0.0-dev
 ---
 schema: olm.bundle
-image: quay.io/zncdatadev/secret-operator-bundle:v0.0.1
+image: quay.io/zncdatadev/secret-operator-bundle:0.0.0-dev
