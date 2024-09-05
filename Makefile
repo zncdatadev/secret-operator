@@ -196,7 +196,7 @@ csi-docker-push: ## Push docker image with the csi driver.
 csi-docker-buildx: ## Build and push docker image for the csi driver for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	$(CONTAINER_TOOL) buildx build -f build/csi-driver.Dockerfile --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} .
+	$(CONTAINER_TOOL) buildx build -f build/csi-driver.Dockerfile --push --platform=$(PLATFORMS) --build-arg LDFLAGS=$(LDFLAGS) --tag ${CSIDRIVER_IMG} .
 	$(CONTAINER_TOOL) buildx rm project-v3-builder
 
 ##@ Deployment
