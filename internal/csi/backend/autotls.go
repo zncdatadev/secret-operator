@@ -110,13 +110,17 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 
 	notAfter := time.Now().Add(duration)
 
-	cnName := a.getCommonName()
+	// Set empty cnName, then san critical extension forced to be used
+	// From RFC 5280, Section 4.2.1.6
+	cnName := ""
 
+	logger.Info("Signe certificate", "commonName", cnName, "notAfter", notAfter, "addresses", addresses)
 	serverCert, err := certificateAuthority.SignServerCertificate(
 		cnName,
 		addresses,
 		notAfter,
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +136,6 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		Data:        data,
 		ExpiresTime: &expiresTime,
 	}, nil
-}
-
-func (a *AutoTlsBackend) getCommonName() string {
-	return a.podInfo.GetPodName()
 }
 
 func (a *AutoTlsBackend) getAddresses(ctx context.Context) ([]pod_info.Address, error) {
