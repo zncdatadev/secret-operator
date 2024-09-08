@@ -3,6 +3,7 @@ package csi
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -151,8 +152,9 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volume_id s
 	// get 16 bytes of volume tag, but it maybe cause collision vulnerability
 	volume_tag = volume_tag[:16]
 
-	annotationexpiresName := constants.PrefixLabelRestarterExpiresAt + string(volume_tag)
+	annotationexpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volume_tag)
 	expiresTimeStr := expiresTime.Format(time.RFC3339)
+	logger.V(5).Info("Update pod annotation", "pod", pod.Name, "key", annotationexpiresName, "value", expiresTimeStr)
 
 	pod.Annotations[annotationexpiresName] = expiresTimeStr
 
