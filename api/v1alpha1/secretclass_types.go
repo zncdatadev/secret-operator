@@ -63,7 +63,9 @@ type CASpec struct {
 }
 
 type SecretSpec struct {
-	Name      string `json:"name"`
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// +kubebuilder:validation:Required
 	Namespace string `json:"namespace"`
 }
 

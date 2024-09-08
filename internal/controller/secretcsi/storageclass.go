@@ -1,11 +1,11 @@
-package secret_csi_plugin
+package secretcsi
 
 import (
 	"context"
 	"time"
 
+	operatorclient "github.com/zncdatadev/operator-go/pkg/client"
 	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
-	"github.com/zncdatadev/secret-operator/pkg/resource"
 	storage "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,7 +48,7 @@ func (r *StorageClass) build() *storage.StorageClass {
 }
 
 func (r *StorageClass) apply(ctx context.Context, obj *storage.StorageClass) (ctrl.Result, error) {
-	mutant, err := resource.CreateOrUpdate(ctx, r.client, obj)
+	mutant, err := operatorclient.CreateOrUpdate(ctx, r.client, obj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if mutant {

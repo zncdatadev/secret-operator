@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package secret_csi_plugin
+package secretcsi
 
 import (
 	"context"
@@ -83,21 +83,27 @@ func (r *SecretCSIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	logger.V(1).Info("Reconciling SecretCSI", "Name", instance.Name)
 
+	if result, err := NewAutoTlsSecretClass(r.Client).Reconcile(ctx); err != nil {
+		return result, err
+	} else if !result.IsZero() {
+		return result, nil
+	}
+
 	if result, err := NewCSIDriver(r.Client, instance).Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.Requeue {
+	} else if !result.IsZero() {
 		return result, nil
 	}
 
 	if result, err := NewRBAC(r.Client, instance).Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.RequeueAfter > 0 {
+	} else if !result.IsZero() {
 		return result, nil
 	}
 
 	if result, err := NewStorageClass(r.Client, instance).Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.RequeueAfter > 0 {
+	} else if !result.IsZero() {
 		return result, nil
 	}
 
@@ -105,9 +111,11 @@ func (r *SecretCSIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if result, err := daemonSet.Reconcile(ctx); err != nil {
 		return result, err
-	} else if result.RequeueAfter > 0 {
+	} else if !result.IsZero() {
 		return result, nil
 	}
+
+	logger.V(1).Info("SecretCSI reconciled successfully", "Name", instance.Name)
 
 	return ctrl.Result{}, nil
 }

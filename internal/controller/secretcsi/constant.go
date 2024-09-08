@@ -1,4 +1,4 @@
-package secret_csi_plugin
+package secretcsi
 
 import "path/filepath"
 

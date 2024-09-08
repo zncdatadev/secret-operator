@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zncdatadev/secret-operator/pkg/resource"
+	operatorclient "github.com/zncdatadev/operator-go/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -109,7 +109,7 @@ func (c *CertificateManager) savePEMKeyPairsToSecret(ctx context.Context, data m
 		Data: data,
 	}
 
-	if mutant, err := resource.CreateOrUpdate(ctx, c.client, obj); err != nil {
+	if mutant, err := operatorclient.CreateOrUpdate(ctx, c.client, obj); err != nil {
 		return err
 	} else if mutant {
 		logger.V(0).Info("Saved certificate authorities PEM key pairs to secret", "name", c.name, "namespace", c.namespace)
