@@ -19,7 +19,7 @@ spec:
       echo "Loop is running... (Press Ctrl+C or send SIGTERM to exit)"
       while true; do
         sleep 1
-        tail -f /opt/zncdata/mode || (sleep 1 && echo 'Waiting for content...')
+        tail -f /opt/secret/mode || (sleep 1 && echo 'Waiting for content...')
       done
     resources:
       limits:
@@ -27,10 +27,10 @@ spec:
         cpu: "500m"
     volumeMounts:
     - name: secret
-      mountPath: /opt/zncdata
+      mountPath: /opt/secret
     readinessProbe:
       exec:
-        command: ["sh", "-c", "cat /opt/zncdata/mode | grep -q default"]
+        command: ["sh", "-c", "cat /opt/secret/mode | grep -q default"]
       initialDelaySeconds: 1
       periodSeconds: 5
   volumes:

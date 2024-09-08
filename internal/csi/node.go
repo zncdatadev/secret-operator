@@ -2,10 +2,12 @@ package csi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
+	"time"
 
 	"io/fs"
 
@@ -16,6 +18,7 @@ import (
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/zncdatadev/operator-go/pkg/constants"
 	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	secretbackend "github.com/zncdatadev/secret-operator/internal/csi/backend"
 
@@ -45,14 +48,17 @@ func NewNodeServer(
 }
 
 func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	// check requests
+	// 	- volume ID missing in request
+	// 	- target path missing in request
+	// 	- volume capability missing in request
+	// 	- volume context missing in request or empty
 	if err := n.validateNodePublishVolumeRequest(request); err != nil {
 		return nil, err
 	}
 
 	targetPath := request.GetTargetPath()
-	if targetPath == "" {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
-	}
+	volumeID := request.GetVolumeId()
 
 	// get the volume context
 	// Default, volume context contains data:
@@ -87,8 +93,8 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	pod := &corev1.Pod{}
 	// get the pod
+	pod := &corev1.Pod{}
 	if err := n.client.Get(ctx, client.ObjectKey{
 		Name:      volumeSelector.Pod,
 		Namespace: volumeSelector.PodNamespace,
@@ -115,7 +121,8 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if err := n.updatePod(ctx, pod.DeepCopy(), secretContent.ExpiresTime); err != nil {
+	// update the pod annotation with the secret expiration time
+	if err := n.updatePod(ctx, pod.DeepCopy(), volumeID, secretContent.ExpiresTime); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -123,43 +130,33 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 }
 
 // updatePod updates the pod annotation with the secret expiration time.
-// If the new expiration time is closer to the current time, update the pod annotation
-// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
-// keeps the old expiration time.
-func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, expiresTime *int64) error {
+// The volume ID is hashed using sha256, and the first 16 bytes are used as the volume tag.
+// Then, the expiration time is written to the pod annotation with the key "secrets.zncdata.dev/restarter-expires-at:<volume_tag>".
+//
+// Considering the length 63 limitation of Kubernetes annotations, we hash the volume ID to maintain the readability of the annotation
+// and its association with the volume. However, truncating the hash to the first 16 bytes may introduce collision risks.
+func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volume_id string, expiresTime *time.Time) error {
 	if pod.Annotations == nil {
 		pod.Annotations = make(map[string]string)
 	}
 	patch := client.MergeFrom(pod.DeepCopy())
-	var err error
 	if expiresTime == nil {
 		logger.V(5).Info("Expiration time is nil, skip update pod annotation", "pod", pod.Name)
 		return nil
 	}
 
-	existExpiresTime := int64(0)
+	volume_tag_hash := sha256.New()
+	volume_tag_hash.Write([]byte("secrets.zncdata.dev/volume:"))
+	volume_tag_hash.Write([]byte(volume_id))
+	volume_tag := volume_tag_hash.Sum(nil)
+	// get 16 bytes of volume tag, but it maybe cause collision vulnerability
+	volume_tag = volume_tag[:16]
 
-	existExpiresTimeStr, found := pod.Annotations[volume.SecretZncdataExpirationTime]
+	annotationexpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volume_tag)
+	expiresTimeStr := expiresTime.Format(time.RFC3339)
+	logger.V(5).Info("Update pod annotation", "pod", pod.Name, "key", annotationexpiresName, "value", expiresTimeStr)
 
-	if found && existExpiresTimeStr != "" {
-		existExpiresTime, err = strconv.ParseInt(existExpiresTimeStr, 10, 64)
-		if err != nil {
-			return err
-		}
-		logger.V(5).Info("Pod annotation found", "pod", pod.Name, "expiresTime", existExpiresTime)
-		// if the new expiration time is closer to the current time, update the pod annotation
-		// with the new expiration time. Otherwise, do nothing, meaning the pod annotation
-		// keeps the old expiration time.
-		if *expiresTime > existExpiresTime {
-			return nil
-		}
-
-		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
-		logger.V(5).Info("Pod annotation updated", "pod", pod.Name, "expiresTime", expiresTime)
-	} else {
-		pod.Annotations[volume.SecretZncdataExpirationTime] = strconv.FormatInt(*expiresTime, 10)
-		logger.V(5).Info("Pod annotation added", "pod", pod.Name, "expiresTime", expiresTime)
-	}
+	pod.Annotations[annotationexpiresName] = expiresTimeStr
 
 	if err := n.client.Patch(ctx, pod, patch); err != nil {
 		return err
