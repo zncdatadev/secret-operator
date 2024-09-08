@@ -16,16 +16,16 @@ spec:
       dnf install krb5-workstation nginx -y
       
       echo "Loop is running... (Press Ctrl+C or send SIGTERM to exit)"
-      while ! test -f /opt/zncdata/keytab; do
+      while ! test -f /opt/secret/keytab; do
         sleep 1
         echo "Waiting for content..."
       done
 
-      KERBEROS_REALM=$(grep -oP 'default_realm = \K.*' /opt/zncdata//krb5.conf)
+      KERBEROS_REALM=$(grep -oP 'default_realm = \K.*' /opt/secret//krb5.conf)
       
-      klist -kt /opt/zncdata/keytab
+      klist -kt /opt/secret/keytab
 
-      kinit -kt /opt/zncdata/keytab foo/$NODE_NAME@$KERBEROS_REALM
+      kinit -kt /opt/secret/keytab foo/$NODE_NAME@$KERBEROS_REALM
 
       klist -e
       
@@ -37,7 +37,7 @@ spec:
         fieldRef:
           fieldPath: spec.nodeName
     - name: KRB5_CONFIG
-      value: /opt/zncdata//krb5.conf
+      value: /opt/secret//krb5.conf
     resources:
       limits:
         memory: "128Mi"
@@ -48,7 +48,7 @@ spec:
       name: http
     volumeMounts:
     - name: secret
-      mountPath: /opt/zncdata
+      mountPath: /opt/secret
     readinessProbe:
       httpGet:
         port: http

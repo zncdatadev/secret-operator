@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/zncdatadev/operator-go/pkg/constants"
 	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	"github.com/zncdatadev/secret-operator/pkg/pod_info"
 	"github.com/zncdatadev/secret-operator/pkg/util"
@@ -98,22 +99,22 @@ func (k *K8sSearchBackend) getSecret(
 // The labels are based on the secret class and the volume selector.
 func (k *K8sSearchBackend) matchingLabels() map[string]string {
 	labels := map[string]string{
-		volume.SecretsZncdataClass: k.volumeSelector.Class,
+		constants.AnnotationSecretsClass: k.volumeSelector.Class,
 	}
 
 	scope := k.volumeSelector.Scope
 	pod := k.GetPod()
 
 	if scope.Pod != "" {
-		labels[volume.SecretsZncdataPod] = pod.GetName()
+		labels[constants.LabelSecretsPod] = pod.GetName()
 	}
 
 	if scope.Node != "" {
-		labels[volume.SecretsZncdataNodeName] = pod.Spec.NodeName
+		labels[constants.LabelSecretsNode] = pod.Spec.NodeName
 	}
 
 	if scope.Services != nil {
-		labels[volume.SecretsZncdataService] = strings.Join(scope.Services, ",")
+		labels[constants.LabelSecretsService] = strings.Join(scope.Services, ",")
 	}
 
 	// TODO: add listener label when listener volume is supported

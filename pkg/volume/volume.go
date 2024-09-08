@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zncdatadev/operator-go/pkg/constants"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -34,54 +35,6 @@ const (
 	CSIStorageEphemeral                     string = "csi.storage.k8s.io/ephemeral"
 	StorageKubernetesCSIProvisionerIdentity string = "storage.kubernetes.io/csiProvisionerIdentity"
 	VolumeKubernetesStorageProvisioner      string = "volume.kubernetes.io/storage-provisioner"
-)
-
-// Annotation for expiration time of zncdata secret for pod.
-// When the secret is created, the expiration time is set to the current time plus the lifetime.
-// Then we can clean up the secret after expiration time
-const (
-	SecretZncdataExpirationTime string = "secrets.zncdata.dev/expirationTime"
-)
-
-// Labels for k8s search secret
-const (
-	SecretsZncdataNodeName string = "secrets.zncdata.dev/node"
-	SecretsZncdataPod      string = "secrets.zncdata.dev/pod"
-	SecretsZncdataService  string = "secrets.zncdata.dev/service"
-)
-
-// Zncdata defined annotations for PVCTemplate.
-// Then csi driver can extract annotations from PVC to prepare the secret for pod.
-const (
-	SecretsZncdataClass string = "secrets.zncdata.dev/class"
-
-	// Scope is the scope of the secret.
-	// It can be one of the following values:
-	// - pod
-	// - node
-	// - service
-	// - listener-volume
-	SecretsZncdataScope string = "secrets.zncdata.dev/scope"
-
-	// Format is mounted format of the secret.
-	// It can be one of the following values:
-	// - tls-pem  A PEM-encoded TLS certificate, include "tls.crt", "tls.key", "ca.crt".
-	// - tls-p12 A PKCS#12 archive, include "keystore.p12", "truststore.p12".
-	// - kerberos A Kerberos keytab, include "keytab", "krb5.conf".
-	SecretsZncdataFormat string = "secrets.zncdata.dev/format"
-
-	PKCS12Password   string = "secrets.zncdata.dev/tlsPKCS12Password"
-	CertLifeTime     string = "secrets.zncdata.dev/autoTlsCertLifetime"
-	CertJitterFactor string = "secrets.zncdata.dev/autoTlsCertJitterFactor"
-
-	// KerberosServiceNames is the list of Kerberos service names.
-	// It is a comma separated list of Kerberos realms.
-	// For example this filed value: "HTTP,NN,DN"
-	// It is used to create kerberos realm.
-	// 	- HTTP -> HTTP/<k8s-service>.<k8s-namespace>.cluster.local@REALM
-	// 	- NN -> nn/<k8s-service>.<k8s-namespace>.cluster.local@REALM
-	// 	- DN -> dn/<k8s-service>.<k8s-namespace>.cluster.local@REALM
-	SecretsZncdataKerberosServiceNames string = "secrets.zncdata.dev/kerberosServiceNames"
 )
 
 type SecretVolumeSelector struct {
@@ -143,25 +96,25 @@ func (v SecretVolumeSelector) ToMap() map[string]string {
 		out[StorageKubernetesCSIProvisionerIdentity] = v.Provisioner
 	}
 	if v.Class != "" {
-		out[SecretsZncdataClass] = v.Class
+		out[constants.AnnotationSecretsClass] = v.Class
 	}
 	if v.encodeScope() != "" {
-		out[SecretsZncdataScope] = v.encodeScope()
+		out[constants.AnnotationSecretsScope] = v.encodeScope()
 	}
 	if v.Format != "" {
-		out[SecretsZncdataFormat] = string(v.Format)
+		out[constants.AnnotationSecretsFormat] = string(v.Format)
 	}
 	if len(v.KerberosServiceNames) > 0 {
-		out[SecretsZncdataKerberosServiceNames] = strings.Join(v.KerberosServiceNames, KerberosServiceNamesSplitter)
+		out[constants.AnnotationSecretsKerberosServiceNames] = strings.Join(v.KerberosServiceNames, KerberosServiceNamesSplitter)
 	}
 	if v.TlsPKCS12Password != "" {
-		out[PKCS12Password] = v.TlsPKCS12Password
+		out[constants.AnnotationSecretsPKCS12Password] = v.TlsPKCS12Password
 	}
 	if v.AutoTlsCertLifetime != 0 {
-		out[CertLifeTime] = v.AutoTlsCertLifetime.String()
+		out[constants.AnnonationSecretExpirationTimeName] = v.AutoTlsCertLifetime.String()
 	}
 	if v.AutoTlsCertJitterFactor != 0 {
-		out[CertJitterFactor] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
+		out[constants.AnnonationSecretExpirationTimeName] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
 	}
 	return out
 }
@@ -224,23 +177,23 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 			v.Ephemeral = value
 		case StorageKubernetesCSIProvisionerIdentity:
 			v.Provisioner = value
-		case SecretsZncdataClass:
+		case constants.AnnotationSecretsClass:
 			v.Class = value
-		case SecretsZncdataScope:
+		case constants.AnnotationSecretsScope:
 			v.Scope = v.decodeScope(value)
-		case SecretsZncdataFormat:
+		case constants.AnnotationSecretsFormat:
 			v.Format = SecretFormat(value)
-		case SecretsZncdataKerberosServiceNames:
+		case constants.AnnotationSecretsKerberosServiceNames:
 			v.KerberosServiceNames = strings.Split(value, KerberosServiceNamesSplitter)
-		case PKCS12Password:
+		case constants.AnnotationSecretsPKCS12Password:
 			v.TlsPKCS12Password = value
-		case CertLifeTime:
+		case constants.AnnotationSecretCertLifeTime:
 			d, err := time.ParseDuration(value)
 			if err != nil {
 				return nil, err
 			}
 			v.AutoTlsCertLifetime = d
-		case CertJitterFactor:
+		case constants.AnnotationSecretsCertJitterFactor:
 			i, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
 				return nil, err

@@ -130,7 +130,7 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		return nil, err
 	}
 
-	expiresTime := notAfter.Unix()
+	expiresTime := notAfter
 
 	return &util.SecretContent{
 		Data:        data,

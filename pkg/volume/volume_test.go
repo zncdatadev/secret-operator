@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/zncdatadev/operator-go/pkg/constants"
 )
 
 func TestSecretVolumeSelectorToMap(t *testing.T) {
@@ -40,16 +42,16 @@ func TestSecretVolumeSelectorToMap(t *testing.T) {
 				AutoTlsCertLifetime:  24 * time.Hour,
 			},
 			want: map[string]string{
-				CSIStoragePodName:                       "my-pod",
-				CSIStoragePodNamespace:                  "my-namespace",
-				CSIStoragePodUid:                        "my-uid",
-				CSIStorageServiceAccountName:            "my-service-account",
-				CSIStorageEphemeral:                     "true",
-				StorageKubernetesCSIProvisionerIdentity: "my-provisioner",
-				SecretsZncdataClass:                     "my-class",
-				SecretsZncdataScope:                     "pod,node,service=my-service,listener-volume=my-listener-volume",
-				SecretsZncdataFormat:                    "tls-pem",
-				KerberosServiceNamesSplitter:            "realm1,realm2",
+				CSIStoragePodName:                               "my-pod",
+				CSIStoragePodNamespace:                          "my-namespace",
+				CSIStoragePodUid:                                "my-uid",
+				CSIStorageServiceAccountName:                    "my-service-account",
+				CSIStorageEphemeral:                             "true",
+				StorageKubernetesCSIProvisionerIdentity:         "my-provisioner",
+				constants.AnnotationSecretsClass:                "my-class",
+				constants.AnnotationSecretsScope:                "pod,node,service=my-service,listener-volume=my-listener-volume",
+				constants.AnnotationSecretsFormat:               "tls-pem",
+				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 			},
 		},
 		{
@@ -61,7 +63,7 @@ func TestSecretVolumeSelectorToMap(t *testing.T) {
 				},
 			},
 			want: map[string]string{
-				SecretsZncdataScope: "node,listener-volume=my-listener-volume",
+				constants.AnnotationSecretsScope: "node,listener-volume=my-listener-volume",
 			},
 		},
 	}
@@ -92,16 +94,16 @@ func TestNewVolumeSelectorFromMap(t *testing.T) {
 		{
 			name: "full",
 			parameters: map[string]string{
-				CSIStoragePodName:                       "my-pod",
-				CSIStoragePodNamespace:                  "my-namespace",
-				CSIStoragePodUid:                        "my-uid",
-				CSIStorageServiceAccountName:            "my-service-account",
-				CSIStorageEphemeral:                     "true",
-				StorageKubernetesCSIProvisionerIdentity: "my-provisioner",
-				SecretsZncdataClass:                     "my-class",
-				SecretsZncdataScope:                     "pod,node,service=my-service,listener-volume=my-listener-volume",
-				SecretsZncdataFormat:                    "tls-pem",
-				KerberosServiceNamesSplitter:            "realm1,realm2",
+				CSIStoragePodName:                               "my-pod",
+				CSIStoragePodNamespace:                          "my-namespace",
+				CSIStoragePodUid:                                "my-uid",
+				CSIStorageServiceAccountName:                    "my-service-account",
+				CSIStorageEphemeral:                             "true",
+				StorageKubernetesCSIProvisionerIdentity:         "my-provisioner",
+				constants.AnnotationSecretsClass:                "my-class",
+				constants.AnnotationSecretsScope:                "pod,node,service=my-service,listener-volume=my-listener-volume",
+				constants.AnnotationSecretsFormat:               "tls-pem",
+				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 			},
 			expected: &SecretVolumeSelector{
 				Pod:                "my-pod",

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net"
 
-	listenersv1alpha1 "github.com/zncdatadev/listener-operator/api/v1alpha1"
-	listenerUtil "github.com/zncdatadev/listener-operator/pkg/util"
+	operatorlistenersv1alpha1 "github.com/zncdatadev/operator-go/pkg/apis/listeners/v1alpha1"
+	"github.com/zncdatadev/operator-go/pkg/constants"
 	"github.com/zncdatadev/secret-operator/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -252,7 +252,7 @@ func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
 			return nil, err
 		}
 
-		listenerName, found := pvc.Annotations[listenerUtil.ListenersZncdataListenerName]
+		listenerName, found := pvc.Annotations[constants.AnnotationListenerName]
 		if !found {
 			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.GetPodName(),
 				"namespace", p.GetPodNamespace(), "listenerVolume", listenerVolume, "listenerPVC", listenerPVCName,
@@ -313,14 +313,14 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, ingressAddress := range listener.Status.IngressAddress {
-			if ingressAddress.AddressType == listenersv1alpha1.AddressTypeHostname {
+		for _, ingressAddress := range listener.Status.IngressAddresses {
+			if ingressAddress.AddressType == operatorlistenersv1alpha1.AddressTypeHostname {
 				addresses = append(addresses, Address{
 					Hostname: ingressAddress.Address,
 				})
 				logger.V(1).Info("get listener address", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
 					"listenerName", listenerName, "address", ingressAddress.Address)
-			} else if ingressAddress.AddressType == listenersv1alpha1.AddressTypeIP {
+			} else if ingressAddress.AddressType == operatorlistenersv1alpha1.AddressTypeIP {
 				ip := net.ParseIP(ingressAddress.Address)
 				if ip == nil {
 					return nil, fmt.Errorf("invalid listener ip: %s from listener %s", ingressAddress.Address, listenerName)
@@ -339,8 +339,8 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 	return addresses, nil
 }
 
-func (p *PodInfo) GetListener(ctx context.Context, name string) (*listenersv1alpha1.Listener, error) {
-	listener := &listenersv1alpha1.Listener{}
+func (p *PodInfo) GetListener(ctx context.Context, name string) (*operatorlistenersv1alpha1.Listener, error) {
+	listener := &operatorlistenersv1alpha1.Listener{}
 
 	err := p.client.Get(ctx, client.ObjectKey{Name: name, Namespace: p.GetPodNamespace()}, listener)
 	if err != nil {
@@ -381,13 +381,13 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerVolume s
 
 	// get listener class name from listener pvc annotations
 	// if listener class name not found, get it from listener spec
-	listenerClassName, found := pvc.Annotations[listenerUtil.ListenersZncdataListenerClass]
+	listenerClassName, found := pvc.Annotations[constants.AnnotationListenersClass]
 	if !found {
 		logger.V(1).Info("can not find listener class in listener pvc annotations", "pod", p.GetPodName(), "namespace",
 			p.GetPodNamespace(), "listenerVolume", listenerVolume,
 		)
 
-		listenerName, found := pvc.Annotations[listenerUtil.ListenersZncdataListenerName]
+		listenerName, found := pvc.Annotations[constants.AnnotationListenerName]
 		if !found {
 			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.GetPodName(),
 				"namespace", p.GetPodNamespace(), "listenerVolume", listenerVolume,
@@ -414,7 +414,7 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerVolume s
 		return false, err
 	}
 
-	if listenerClass.Spec.ServiceType == listenersv1alpha1.ServiceTypeNodePort {
+	if *listenerClass.Spec.ServiceType == corev1.ServiceTypeNodePort {
 		return true, nil
 	}
 
@@ -425,8 +425,8 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerVolume s
 	return false, nil
 }
 
-func (p *PodInfo) getListenerClass(ctx context.Context, name string) (*listenersv1alpha1.ListenerClass, error) {
-	listenerClass := &listenersv1alpha1.ListenerClass{}
+func (p *PodInfo) getListenerClass(ctx context.Context, name string) (*operatorlistenersv1alpha1.ListenerClass, error) {
+	listenerClass := &operatorlistenersv1alpha1.ListenerClass{}
 	err := p.client.Get(
 		ctx,
 		client.ObjectKey{

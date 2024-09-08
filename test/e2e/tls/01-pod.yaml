@@ -25,13 +25,13 @@ spec:
         - -c
         - |
           # Check if keystore and truststore exist
-          if [ ! -f /opt/zncdata/secret/keystore.p12 ] || [ ! -f /opt/zncdata/secret/truststore.p12 ]; then
+          if [ ! -f /opt/secret/secret/keystore.p12 ] || [ ! -f /opt/secret/secret/truststore.p12 ]; then
             echo "Keystore or truststore does not exist." >&2
             exit 1
           fi
           # Check if keystore contains more than 0 entries
           # Note: you shoule replace 'foo' with the 'secrets.zncdata.dev/tlsPKCS12Password' value
-          entryCount=$(keytool -list -keystore /opt/zncdata/secret/keystore.p12 -storepass foo | grep 'Your keystore contains' | awk '{print $4}')
+          entryCount=$(keytool -list -keystore /opt/secret/secret/keystore.p12 -storepass foo | grep 'Your keystore contains' | awk '{print $4}')
           if [ $entryCount -gt 0 ]; then
               echo "Keystore contains more than 0 entries."
           else
@@ -42,7 +42,7 @@ spec:
       periodSeconds: 5
     volumeMounts:
     - name: secret
-      mountPath: /opt/zncdata/secret
+      mountPath: /opt/secret/secret
   volumes:
   - name: secret
     ephemeral:

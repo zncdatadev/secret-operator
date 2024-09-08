@@ -1,6 +1,8 @@
 package util
 
+import "time"
+
 type SecretContent struct {
 	Data        map[string]string
-	ExpiresTime *int64
+	ExpiresTime *time.Time
 }
