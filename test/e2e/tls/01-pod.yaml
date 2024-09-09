@@ -49,7 +49,7 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: auto-tls
+            secrets.zncdata.dev/class: tls
             secrets.zncdata.dev/format: tls-p12
             secrets.zncdata.dev/scope: pod,node
             secrets.zncdata.dev/tlsPKCS12Password: foo
