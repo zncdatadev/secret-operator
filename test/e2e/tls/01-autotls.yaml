@@ -1,0 +1,117 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: auto-tls
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auto-tls
+  labels:
+    name: auto-tls
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: auto-tls
+  template:
+    metadata:
+      labels:
+        name: auto-tls
+    spec:
+      containers:
+      - name: auto-tls
+        image: registry.access.redhat.com/ubi9/openjdk-21:1.20
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          microdnf install -y diffutils
+
+          # Check if keystore and truststore exist
+          if [ ! -f /opt/security/tls/keystore.p12 ] || [ ! -f /opt/security/tls/truststore.p12 ]; then
+            echo "Keystore or truststore does not exist." >&2
+            exit 1
+          fi
+
+          # Check if keystore contains more than 0 entries
+          entryCount=$(keytool -list -keystore /opt/security/tls/keystore.p12 -storepass $P12PASSWORD | grep 'Your keystore contains' | awk '{print $4}')
+          if [ $entryCount -gt 0 ]; then
+              echo "Keystore contains more than 0 entries."
+          else
+              echo "Keystore contains 0 entries." >&2
+              exit 1
+          fi
+
+          keytool -list -keystore /opt/security/tls/truststore.p12 -storepass $P12PASSWORD >> /opt/summary/$POD_NAME.txt
+
+          cat /opt/summary/$POD_NAME.txt
+
+          tail -f /dev/null
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: P12PASSWORD
+          value: changeit
+        ports:
+        - containerPort: 80
+          name: web
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # check the all files content under /opt/certs/ are the same
+              for file in $(ls /opt/summary); do
+                if ! diff /opt/summary/$file /opt/summary/$POD_NAME.txt; then
+                  echo "Files are different /opt/summary/$file /opt/summary/$POD_NAME.txt" >&2
+                  exit 1
+                fi
+              done
+              echo "All checks passed."
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: tls
+          mountPath: /opt/security/tls
+        - name: certs
+          mountPath: /opt/summary
+      volumes:
+      - name: certs
+        persistentVolumeClaim:
+          claimName: auto-tls
+      - name: tls
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                secrets.zncdata.dev/class: tls
+                secrets.zncdata.dev/format: tls-p12
+                secrets.zncdata.dev/scope: pod,node
+                secrets.zncdata.dev/tlsPKCS12Password: changeit
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              storageClassName: secrets.zncdata.dev
+              resources:
+                requests:
+                  storage: 1Mi

@@ -1,12 +1,11 @@
-
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: pod-auto-tls-listener
+  name: auto-tls
+  labels:
+    name: auto-tls
 status:
-  phase: Running
-  containerStatuses:
-  - name: pod-auto-tls-listener
-    ready: true
-    restartCount: 0
-    started: true
+  availableReplicas: 3
+  readyReplicas: 3
+  replicas: 3
+  updatedReplicas: 3

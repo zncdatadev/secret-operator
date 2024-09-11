@@ -26,7 +26,7 @@ type PEMkeyPair struct {
 
 type Certificate struct {
 	Certificate *x509.Certificate
-	PrivateKey  *rsa.PrivateKey
+	privateKey  *rsa.PrivateKey
 }
 
 func NewCertificateFromData(certPEM []byte, keyPEM []byte) (*Certificate, error) {
@@ -38,8 +38,12 @@ func NewCertificateFromData(certPEM []byte, keyPEM []byte) (*Certificate, error)
 
 	return &Certificate{
 		Certificate: cert.Leaf,
-		PrivateKey:  cert.PrivateKey.(*rsa.PrivateKey),
+		privateKey:  cert.PrivateKey.(*rsa.PrivateKey),
 	}, nil
+}
+
+func (c *Certificate) GetPrivateKey() *rsa.PrivateKey {
+	return c.privateKey
 }
 
 func (c *Certificate) CertificatePEM() []byte {
@@ -47,7 +51,7 @@ func (c *Certificate) CertificatePEM() []byte {
 }
 
 func (c *Certificate) PrivateKeyPEM() []byte {
-	return pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(c.PrivateKey)})
+	return pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(c.privateKey)})
 }
 
 func (c *Certificate) TrustStoreP12(password string, caCerts []*x509.Certificate) ([]byte, error) {
@@ -55,12 +59,12 @@ func (c *Certificate) TrustStoreP12(password string, caCerts []*x509.Certificate
 }
 
 func (c *Certificate) KeyStoreP12(password string, caCerts []*x509.Certificate) (pfxData []byte, err error) {
-	return pkcs12.Modern.Encode(c.PrivateKey, c.Certificate, caCerts, password)
+	return pkcs12.Modern.Encode(c.privateKey, c.Certificate, caCerts, password)
 }
 
 type CertificateAuthority struct {
 	Certificate *x509.Certificate
-	PrivateKey  *rsa.PrivateKey
+	privateKey  *rsa.PrivateKey
 }
 
 func NewCertificateAuthorityFromData(
@@ -79,7 +83,7 @@ func NewCertificateAuthorityFromData(
 	}
 
 	return NewCertificateAuthority(
-		&Certificate{Certificate: x509Cert, PrivateKey: tlsCert.PrivateKey.(*rsa.PrivateKey)},
+		&Certificate{Certificate: x509Cert, privateKey: tlsCert.PrivateKey.(*rsa.PrivateKey)},
 	)
 }
 
@@ -92,7 +96,7 @@ func NewCertificateAuthority(root *Certificate) (*CertificateAuthority, error) {
 
 	return &CertificateAuthority{
 		Certificate: root.Certificate,
-		PrivateKey:  root.PrivateKey,
+		privateKey:  root.privateKey,
 	}, nil
 }
 
@@ -103,12 +107,12 @@ func (c *CertificateAuthority) SerialNumber() string {
 func (c *CertificateAuthority) PublicCertificate() *Certificate {
 	return &Certificate{
 		Certificate: c.Certificate,
-		PrivateKey:  nil,
+		privateKey:  nil,
 	}
 }
 
 func (c *CertificateAuthority) privateKeyPEM() []byte {
-	return pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(c.PrivateKey)})
+	return pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(c.privateKey)})
 }
 
 func (c *CertificateAuthority) CertificatePEM() []byte {
@@ -144,7 +148,7 @@ func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Cer
 	// see http://golang.org/pkg/crypto/x509/#KeyUsage
 	template.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
 
-	certBytes, err := x509.CreateCertificate(rand.Reader, template, c.Certificate, &privateKey.PublicKey, c.PrivateKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, c.Certificate, &privateKey.PublicKey, c.privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -155,10 +159,10 @@ func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Cer
 		return nil, err
 	}
 
-	logger.V(0).Info("Signed certificate", "subject", cert.Subject, "notAfter", cert.NotAfter, "sanDns", cert.DNSNames, "sanIp", cert.IPAddresses)
+	logger.V(0).Info("Signed certificate", "subject", cert.Subject, "serialNumber", cert.SerialNumber, "notAfter", cert.NotAfter, "sanDns", cert.DNSNames, "sanIp", cert.IPAddresses)
 	return &Certificate{
 		Certificate: cert,
-		PrivateKey:  privateKey,
+		privateKey:  privateKey,
 	}, nil
 }
 
@@ -203,12 +207,12 @@ func (c *CertificateAuthority) SignClientCertificate(
 }
 
 func (c *CertificateAuthority) Rotate(notAfter time.Time) (*CertificateAuthority, error) {
-	newCA, err := NewSelfSignedCertificateAuthority(notAfter, c.Certificate, c.PrivateKey)
+	newCA, err := NewSelfSignedCertificateAuthority(notAfter, c.Certificate, c.privateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.V(0).Info("Rotated certificate authority", "notAfter", newCA.Certificate.NotAfter)
+	logger.V(0).Info("Rotated certificate authority", "notAfter", newCA.Certificate.NotAfter, "newSerialNumber", newCA.SerialNumber(), "currentSerialNumber", c.SerialNumber())
 	return newCA, nil
 }
 
@@ -269,7 +273,7 @@ func NewSelfSignedCertificateAuthority(expeiry time.Time, parent *x509.Certifica
 	}
 
 	return NewCertificateAuthority(
-		&Certificate{Certificate: cert, PrivateKey: privateKey},
+		&Certificate{Certificate: cert, privateKey: privateKey},
 	)
 }
 

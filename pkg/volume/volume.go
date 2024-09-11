@@ -35,16 +35,19 @@ const (
 	CSIStorageEphemeral                     string = "csi.storage.k8s.io/ephemeral"
 	StorageKubernetesCSIProvisionerIdentity string = "storage.kubernetes.io/csiProvisionerIdentity"
 	VolumeKubernetesStorageProvisioner      string = "volume.kubernetes.io/storage-provisioner"
+	// https://kubernetes.io/docs/reference/labels-annotations-taints/#volume-beta-kubernetes-io-storage-provisioner-deprecated
+	DeprecatedVolumeKubernetesStorageProvisioner string = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
 type SecretVolumeSelector struct {
 	// Default values for volume context
-	Pod                string `json:"csi.storage.k8s.io/pod.name"`
-	PodNamespace       string `json:"csi.storage.k8s.io/pod.namespace"`
-	PodUID             string `json:"csi.storage.k8s.io/pod.uid"`
-	ServiceAccountName string `json:"csi.storage.k8s.io/serviceAccount.name"`
-	Ephemeral          string `json:"csi.storage.k8s.io/ephemeral"`
-	Provisioner        string `json:"storage.kubernetes.io/csiProvisionerIdentity"`
+	Pod                      string `json:"csi.storage.k8s.io/pod.name"`
+	PodNamespace             string `json:"csi.storage.k8s.io/pod.namespace"`
+	PodUID                   string `json:"csi.storage.k8s.io/pod.uid"`
+	ServiceAccountName       string `json:"csi.storage.k8s.io/serviceAccount.name"`
+	Ephemeral                string `json:"csi.storage.k8s.io/ephemeral"`
+	CSIProvisionerIdIdentiry string `json:"storage.kubernetes.io/csiProvisionerIdentity"`
+	Provisioner              string `json:"volume.kubernetes.io/storage-provisioner"`
 
 	Class  string       `json:"secrets.zncdata.dev/class"`
 	Scope  SecretScope  `json:"secrets.zncdata.dev/scope"`
@@ -176,7 +179,16 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 		case CSIStorageEphemeral:
 			v.Ephemeral = value
 		case StorageKubernetesCSIProvisionerIdentity:
+			v.CSIProvisionerIdIdentiry = value
+		case VolumeKubernetesStorageProvisioner:
 			v.Provisioner = value
+		case DeprecatedVolumeKubernetesStorageProvisioner:
+			logger.V(0).Info("Deprecated key since v1.23, please use new key",
+				"key", key,
+				"value", value,
+				"new key", VolumeKubernetesStorageProvisioner,
+				"reference", "https://kubernetes.io/docs/reference/labels-annotations-taints/#volume-beta-kubernetes-io-storage-provisioner-deprecated",
+			)
 		case constants.AnnotationSecretsClass:
 			v.Class = value
 		case constants.AnnotationSecretsScope:
