@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"crypto/x509"
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -22,6 +23,12 @@ const (
 	PEMTlsCertFileName    = "tls.crt"
 	PEMTlsKeyFileName     = "tls.key"
 	PEMCaCertFileName     = "ca.crt"
+)
+
+const (
+	DefaultCertLifeTime time.Duration = 24 * 7 * time.Hour
+	DefaultCertJitter   float64       = 0.2
+	DefaultCertBuffer   time.Duration = 8 * time.Hour
 )
 
 type AutoTlsBackend struct {
@@ -68,17 +75,37 @@ func NewAutoTlsBackend(
 }
 
 // use AutoTlsCertLifetime and AutoTlsCertJitterFactor to calculate the certificate lifetime
-func (a *AutoTlsBackend) getCertLife() time.Duration {
-	certLife := a.volumeSelector.AutoTlsCertLifetime
-	jitterFactor := a.volumeSelector.AutoTlsCertJitterFactor
+func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
+	now := time.Now()
 
-	jitterFactorAllowedRange := 0.0 <= jitterFactor && jitterFactor <= 1.0
-	if !jitterFactorAllowedRange {
-		logger.Info("Invalid jitter factor, using default value", "jitterFactor", jitterFactor)
-		jitterFactor = 0.1
+	certLife := a.volumeSelector.AutoTlsCertLifetime
+	if certLife == 0 {
+		logger.Info("Certificate lifetime is not set, using default certificate lifetime", "defaultCertLifeTime", DefaultCertLifeTime)
+		certLife = DefaultCertLifeTime
+	}
+	restarterBuffer := a.volumeSelector.AutoTlsCertRestartBuffer
+	if restarterBuffer == 0 {
+		logger.Info("Certificate restart buffer is not set, using default certificate restart buffer", "defaultCertBuffer", DefaultCertBuffer)
+		restarterBuffer = DefaultCertBuffer
 	}
 
-	randJitterFactor := rand.Float64() * jitterFactor
+	if certLife > a.maxCertificateLifeTime {
+		logger.Info("Certificate lifetime is greater than the maximum certificate lifetime, using the maximum certificate lifetime",
+			"certLife", certLife,
+			"maxCertificateLifeTime", a.maxCertificateLifeTime,
+		)
+		certLife = a.maxCertificateLifeTime
+	}
+
+	jitterFactor := a.volumeSelector.AutoTlsCertJitterFactor
+
+	jitterFactorAllowedRange := 0.0 < jitterFactor && jitterFactor < 1.0
+	if !jitterFactorAllowedRange {
+		logger.Info("Invalid jitter factor, using default value", "jitterFactor", jitterFactor)
+		jitterFactor = DefaultCertJitter
+	}
+
+	randomJitterFactor := rand.Float64() * jitterFactor
 	jitterLife := time.Duration(float64(certLife) * jitterFactor)
 	jitteredCertLife := certLife - jitterLife
 
@@ -87,9 +114,18 @@ func (a *AutoTlsBackend) getCertLife() time.Duration {
 		"jitteredCertLife", jitteredCertLife,
 		"jitterLife", jitterLife,
 		"jitterFactor", jitterFactor,
-		"randJitterFactor", randJitterFactor,
+		"randomJitterFactor", randomJitterFactor,
 	)
-	return certLife
+
+	notAfter := now.Add(jitteredCertLife)
+	podExpires := notAfter.Add(-restarterBuffer)
+	if podExpires.Before(now) {
+		return 0, fmt.Errorf("certificate lifetime is too short, pod will restart before certificate expiration. "+
+			"'Now': %v, 'Expires': %v, 'Restart': %v", now, notAfter, podExpires,
+		)
+	}
+
+	return certLife, nil
 }
 
 func (a *AutoTlsBackend) certificateFormat() volume.SecretFormat {
@@ -152,7 +188,12 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		return nil, err
 	}
 
-	notAfter := time.Now().Add(a.getCertLife())
+	certLife, err := a.getCertLife()
+	if err != nil {
+		return nil, err
+	}
+
+	notAfter := time.Now().Add(certLife)
 
 	// Set empty cnName, then san critical extension forced to be used
 	// From RFC 5280, Section 4.2.1.6
