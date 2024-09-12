@@ -89,7 +89,7 @@ func (c *CertificateManager) secretCreateIfDoesNotExist(ctx context.Context) err
 		if err := c.client.Create(ctx, c.secret); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				logger.V(1).Info("Secret already exists, get the latest secret", "name", c.name, "namespace", c.namespace)
-				if c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, c.secret); err != nil {
+				if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, c.secret); err != nil {
 					return err
 				}
 			} else {
