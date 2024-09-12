@@ -113,7 +113,7 @@ func (r *DaemonSet) getVolumes() []corev1.Volume {
 func (r *DaemonSet) makeDaemonset() (*appv1.DaemonSet, error) {
 	labels := map[string]string{
 		"app.kubenetes.io/name":        "secret-csi",
-		"app.kubernetes.io/instance":   r.cr.GetName(),
+		"app.kubernetes.io/instance":   r.getName(),
 		"app.kubernetes.io/part-of":    "secret-csi",
 		"app.kubernetes.io/managed-by": "secret-operator",
 		"app.kubernetes.io/created-by": "secret-operator",

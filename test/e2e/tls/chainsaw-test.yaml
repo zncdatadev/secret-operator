@@ -1,0 +1,30 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tls
+spec:
+  steps:
+    - try:
+      - apply:
+          file: secretcsi.yaml
+      - assert:
+          file: secretcsi-assert.yaml
+    - try:
+      - apply:
+          file: autotls.yaml
+      - assert:
+          file: autotls-assert.yaml
+      catch:
+      - sleep:
+          duration: 5s
+      - podLogs:
+          selector: app.kubernetes.io/instance=secretcsi-csi
+          container: csi-secrets
+          tail: -1
+      - describe:
+          apiVersion: v1
+          kind: Pod
+          selector: name=auto-tls
+      - podLogs:
+          selector: name=auto-tls
+          tail: -1
