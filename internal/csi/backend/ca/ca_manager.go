@@ -49,8 +49,13 @@ func NewCertificateManager(
 		name:                 name,
 		namespace:            namespace,
 
-		secret: &corev1.Secret{},
-		cas:    []*CertificateAuthority{},
+		secret: &corev1.Secret{
+			ObjectMeta: ctrl.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+		},
+		cas: []*CertificateAuthority{},
 	}
 	return obj
 }
