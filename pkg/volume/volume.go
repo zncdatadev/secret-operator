@@ -2,7 +2,6 @@ package volume
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +38,16 @@ const (
 	DeprecatedVolumeKubernetesStorageProvisioner string = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
+// TODO: move to operator-go constants
+const (
+	// When a large number of Pods restart at a similar time,
+	// because the pod restart time is uncertain, the restart process may be relatively long,
+	// even if there is a time limit for elegant shutdown, there will still be a case of pod late restart
+	// resulting in certificate expiration.
+	// To avoid this, the pod expiration time is checked before this buffer time.
+	AnnotationSecretsCertRestartBuffer string = "secrets.zncdata.dev/" + "autoTlsCertRestartBuffer"
+)
+
 type SecretVolumeSelector struct {
 	// Default values for volume context
 	Pod                      string `json:"csi.storage.k8s.io/pod.name"`
@@ -53,9 +62,10 @@ type SecretVolumeSelector struct {
 	Scope  SecretScope  `json:"secrets.zncdata.dev/scope"`
 	Format SecretFormat `json:"secrets.zncdata.dev/format"`
 
-	TlsPKCS12Password       string        `json:"secrets.zncdata.dev/tlsPKCS12Password"`
-	AutoTlsCertLifetime     time.Duration `json:"secrets.zncdata.dev/autoTlsCertLifetime"`
-	AutoTlsCertJitterFactor float64       `json:"secrets.zncdata.dev/autoTlsCertJitterFactor"`
+	TlsPKCS12Password        string        `json:"secrets.zncdata.dev/tlsPKCS12Password"`
+	AutoTlsCertLifetime      time.Duration `json:"secrets.zncdata.dev/autoTlsCertLifetime"`
+	AutoTlsCertJitterFactor  float64       `json:"secrets.zncdata.dev/autoTlsCertJitterFactor"`
+	AutoTlsCertRestartBuffer time.Duration `json:"secrets.zncdata.dev/autoTlsCertRestartBuffer"`
 
 	KerberosServiceNames []string `json:"secrets.zncdata.dev/kerberosServiceNames"`
 }
@@ -114,10 +124,13 @@ func (v SecretVolumeSelector) ToMap() map[string]string {
 		out[constants.AnnotationSecretsPKCS12Password] = v.TlsPKCS12Password
 	}
 	if v.AutoTlsCertLifetime != 0 {
-		out[constants.AnnonationSecretExpirationTimeName] = v.AutoTlsCertLifetime.String()
+		out[constants.AnnotationSecretCertLifeTime] = v.AutoTlsCertLifetime.String()
 	}
 	if v.AutoTlsCertJitterFactor != 0 {
-		out[constants.AnnonationSecretExpirationTimeName] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
+		out[constants.AnnotationSecretsCertJitterFactor] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
+	}
+	if v.AutoTlsCertRestartBuffer != 0 {
+		out[AnnotationSecretsCertRestartBuffer] = v.AutoTlsCertRestartBuffer.String()
 	}
 	return out
 }
@@ -206,11 +219,17 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 			}
 			v.AutoTlsCertLifetime = d
 		case constants.AnnotationSecretsCertJitterFactor:
-			i, err := strconv.ParseInt(value, 10, 64)
+			f, err := fmt.Sscanf(value, "%f", &v.AutoTlsCertJitterFactor)
+			if err != nil || f != 1 {
+				return nil, fmt.Errorf("failed to parse jitter factor: %s", value)
+			}
+
+		case AnnotationSecretsCertRestartBuffer:
+			d, err := time.ParseDuration(value)
 			if err != nil {
 				return nil, err
 			}
-			v.AutoTlsCertJitterFactor = float64(i)
+			v.AutoTlsCertRestartBuffer = d
 		default:
 			logger.V(0).Info("Unknown key, skip it", "key", key, "value", value)
 		}
