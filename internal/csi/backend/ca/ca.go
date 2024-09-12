@@ -159,7 +159,7 @@ func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Cer
 		return nil, err
 	}
 
-	logger.V(0).Info("Signed certificate", "subject", cert.Subject, "serialNumber", cert.SerialNumber, "notAfter", cert.NotAfter, "sanDns", cert.DNSNames, "sanIp", cert.IPAddresses)
+	logger.V(0).Info("Signed certificate", "subject", cert.Subject, "serialNumber", formatSerialNumber(cert.SerialNumber), "notAfter", cert.NotAfter, "sanDns", cert.DNSNames, "sanIp", cert.IPAddresses)
 	return &Certificate{
 		Certificate: cert,
 		privateKey:  privateKey,
@@ -306,15 +306,18 @@ func publicKeySHA256(publicKey *rsa.PublicKey) ([]byte, error) {
 	return sum[:], nil
 }
 
+var (
+	re = regexp.MustCompile("(?i)([0-9a-f]{2})")
+)
+
 func formatSerialNumber(serialNumber *big.Int) string {
-	// 将大整数转换为十六进制字符串
+	// convert the serial number to a hex string
 	hexStr := fmt.Sprintf("%x", serialNumber)
 
-	// 使用正则表达式将字符串格式化为你想要的格式
-	re := regexp.MustCompile("(?i)([0-9a-f]{2})")
+	// insert a '-' every two characters
 	formattedStr := re.ReplaceAllString(hexStr, "$1-")
 
-	// 删除最后一个冒号
+	// delete the last '-'
 	if len(formattedStr) > 0 && formattedStr[len(formattedStr)-1] == '-' {
 		formattedStr = formattedStr[:len(formattedStr)-1]
 	}

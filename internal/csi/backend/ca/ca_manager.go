@@ -10,7 +10,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,19 +85,20 @@ func (c *CertificateManager) secretCreateIfDoesNotExist(ctx context.Context) err
 		if client.IgnoreNotFound(err) != nil {
 			return err
 		}
-		logger.V(0).Info("Could not find secret, create a new secret", "name", c.name, "namespace", c.namespace)
-		c.secret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      c.name,
-				Namespace: c.namespace,
-			},
-		}
+		logger.V(1).Info("Could not find secret, create a new secret", "name", c.name, "namespace", c.namespace)
 		if err := c.client.Create(ctx, c.secret); err != nil {
-			return err
+			if apierrors.IsAlreadyExists(err) {
+				logger.V(1).Info("Secret already exists, get the latest secret", "name", c.name, "namespace", c.namespace)
+				if c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, c.secret); err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
-		logger.V(0).Info("Created a new secret", "name", c.name, "namespace", c.namespace)
+		logger.V(1).Info("Created a new secret", "name", c.name, "namespace", c.namespace)
 	}
-	logger.V(5).Info("Found secret", "name", c.name, "namespace", c.namespace)
+	logger.V(1).Info("Found secret", "name", c.name, "namespace", c.namespace)
 	return nil
 }
 
