@@ -80,8 +80,13 @@ type NodeDriverRegistrarSpec struct {
 	// +kubebuilder:default:="registry.k8s.io/sig-storage/csi-node-driver-registrar"
 	Repository string `json:"repository,omitempty"`
 
+	// https://github.com/kubernetes-csi/node-driver-registrar/releases
+	//  | Tag         | Minimum Kubernetes Version | Supported CSI Spec Version  |
+	//  | ----------- | -------------------------- | --------------------------- |
+	//  | v2.12.0      | 1.12                       | 1.0.0                      |
+	//  | ----------- | -------------------------- | --------------------------- |
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="v2.8.0"
+	// +kubebuilder:default:="v2.12.0"
 	Tag string `json:"tag,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -98,8 +103,13 @@ type CSIProvisionerSpec struct {
 	// +kubebuilder:default:="registry.k8s.io/sig-storage/csi-provisioner"
 	Repository string `json:"repository,omitempty"`
 
+	// https://github.com/kubernetes-csi/external-provisioner/releases
+	//  | Tag         | Minimum Kubernetes Version | Supported CSI Spec Version  |
+	//  | ----------- | -------------------------- | --------------------------- |
+	//  | v5.1.0      | 1.20                       | 1.0-1.10                    |
+	//  | ----------- | -------------------------- | --------------------------- |
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="v3.5.0"
+	// +kubebuilder:default:="v5.1.0"
 	Tag string `json:"tag,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -116,8 +126,13 @@ type LivenessProbeSpec struct {
 	// +kubebuilder:default:="registry.k8s.io/sig-storage/livenessprobe"
 	Repository string `json:"repository,omitempty"`
 
+	// https://github.com/kubernetes-csi/livenessprobe/releases
+	//  | Tag         | Minimum Kubernetes Version | Supported CSI Spec Version  |
+	//  | ----------- | -------------------------- | --------------------------- |
+	//  | v2.14.0     | 1.13                       | 1.0.0                       |
+	//  | ----------- | -------------------------- | --------------------------- |
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="v2.11.0"
+	// +kubebuilder:default:="v2.14.0"
 	Tag string `json:"tag,omitempty"`
 
 	// +kubebuilder:validation:Optional

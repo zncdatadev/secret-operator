@@ -3,31 +3,32 @@ package ca
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	operatorclient "github.com/zncdatadev/operator-go/pkg/client"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	logger = ctrl.Log.WithName("ca-manager")
-)
-
-var (
-	ErrCACertificateNotFound = errors.New("CA certificate not found")
-	ErrCAPrivateKeyNotFound  = errors.New("CA private key not found")
+	logger  = ctrl.Log.WithName("ca-manager")
+	caMutex sync.Mutex
 )
 
 type CertificateManager struct {
-	client                 client.Client
-	caCertficateLifetime   time.Duration
-	auto                   bool
-	name, namespace        string
-	certificateAuthorities []*CertificateAuthority
+	client               client.Client
+	caCertficateLifetime time.Duration
+	auto                 bool
+	name, namespace      string
+
+	secret *corev1.Secret
+	cas    []*CertificateAuthority
 }
 
 // NewCertificateManager creates a new CertificateManager
@@ -37,104 +38,115 @@ type CertificateManager struct {
 // If the secret exists, get certificate authorities from the secret.
 // Now, pem key supports only RSA 256.
 func NewCertificateManager(
-	ctx context.Context,
 	client client.Client,
 	caCertficateLifetime time.Duration,
 	auto bool,
 	name, namespace string,
-) (*CertificateManager, error) {
+) *CertificateManager {
 	obj := &CertificateManager{
 		client:               client,
 		caCertficateLifetime: caCertficateLifetime,
 		auto:                 auto,
 		name:                 name,
 		namespace:            namespace,
+
+		secret: &corev1.Secret{
+			ObjectMeta: ctrl.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+		},
+		cas: []*CertificateAuthority{},
 	}
-
-	pemKeyPairs, err := obj.getSecret(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	cas, err := obj.getCertificateAuthorities(ctx, pemKeyPairs)
-	if err != nil {
-		return nil, err
-	}
-
-	obj.certificateAuthorities = cas
-
-	return obj, nil
+	return obj
 }
 
-// get pem key pairs from a secret
-// if the secret does not exist, return nil.
-// when auto is enabled, it will create a new self-signed certificate authority
-func (c *CertificateManager) getSecret(ctx context.Context) ([]PEMkeyPair, error) {
-	secret := &corev1.Secret{}
-	err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, secret)
+func (c *CertificateManager) getSecret(ctx context.Context) error {
+	err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, c.secret)
 	if err != nil {
 		if client.IgnoreNotFound(err) != nil {
-			return nil, err
+			return err
 		}
-		return nil, nil
+		logger.V(1).Info("Could not find secret", "name", c.name, "namespace", c.namespace)
+		return nil
+	}
+	logger.V(5).Info("Found secret", "name", c.name, "namespace", c.namespace)
+	return nil
+}
+
+func (c *CertificateManager) updateSecret(ctx context.Context, data map[string][]byte) error {
+	c.secret.Data = data
+	// if server side object has been modified, it will raise a conflict error
+	// we should get the latest object and retry from the beginning.
+	if err := c.client.Update(ctx, c.secret); err != nil {
+		return err
+	}
+	logger.V(0).Info("Saved certificate authorities PEM key pairs to secret", "name", c.name, "namespace", c.namespace)
+	return nil
+}
+
+func (c *CertificateManager) secretCreateIfDoesNotExist(ctx context.Context) error {
+	if c.secret.UID != "" {
+		return nil
+	}
+
+	logger.V(1).Info("Could not find secret, create a new secret", "name", c.name, "namespace", c.namespace, "auto", c.auto)
+	if err := c.client.Create(ctx, c.secret); err != nil {
+		return err
+	}
+
+	logger.V(1).Info("Created a new secret", "name", c.name, "namespace", c.namespace, "auto", c.auto)
+	return nil
+
+}
+
+func (c CertificateManager) getPEMKeyPairsFromSecret(ctx context.Context) ([]PEMkeyPair, error) {
+	if err := c.getSecret(ctx); err != nil {
+		return nil, err
 	}
 
 	var keyPairs []PEMkeyPair
-
-	for certName, cert := range secret.Data {
+	for certName, cert := range c.secret.Data {
 		if strings.HasSuffix(certName, ".crt") {
 			privateKeyName := strings.TrimSuffix(certName, ".crt") + ".key"
-			if privateKey, ok := secret.Data[privateKeyName]; ok {
+			if privateKey, ok := c.secret.Data[privateKeyName]; ok {
 				keyPairs = append(keyPairs, PEMkeyPair{cert, privateKey})
 			}
 		}
 	}
 
+	logger.V(0).Info("Get certificate authorities PEM key pairs from secret", "name", c.name, "namespace", c.namespace, "len", len(keyPairs))
 	return keyPairs, nil
 }
 
-// save pem key pairs to a secret
-// If secret does not exist, create a new secret,
-// else update the secret when auto is enabled.
-func (c *CertificateManager) savePEMKeyPairsToSecret(ctx context.Context, data map[string][]byte) error {
-	obj := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.name,
-			Namespace: c.namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "secret-operator",
-			},
-		},
-		Data: data,
-	}
-
-	if mutant, err := operatorclient.CreateOrUpdate(ctx, c.client, obj); err != nil {
-		return err
-	} else if mutant {
-		logger.V(0).Info("Saved certificate authorities PEM key pairs to secret", "name", c.name, "namespace", c.namespace)
-	}
-
-	return nil
-}
-
-func (c *CertificateManager) saveCertificateAuthorities(
+func (c *CertificateManager) updateCertificateAuthoritiesToSecret(
 	ctx context.Context,
 	cas []*CertificateAuthority,
 ) error {
-
 	if !c.auto {
-		return errors.New("auto is disabled, should not save certificate authorities, this will overwrite the existing certificate authorities")
+		return fmt.Errorf("could not save certificate authorities, because auto is %s, this will overwrite the existing certificate authorities",
+			strconv.FormatBool(c.auto),
+		)
 	}
+
+	if err := c.secretCreateIfDoesNotExist(ctx); err != nil {
+		return err
+	}
+
+	c.sort(cas)
 
 	data := map[string][]byte{}
-	for _, ca := range cas {
-		fmttedSerialNumber := formatSerialNumber(ca.Certificate.SerialNumber)
-		data[fmttedSerialNumber+".crt"] = ca.CertificatePEM()
-		data[fmttedSerialNumber+".key"] = ca.privateKeyPEM()
+	for i, ca := range cas {
+		prefix := strconv.Itoa(i)
+		data[prefix+".ca.crt"] = ca.CertificatePEM()
+		data[prefix+".ca.key"] = ca.privateKeyPEM()
 	}
 
-	return c.savePEMKeyPairsToSecret(ctx, data)
+	if err := c.updateSecret(ctx, data); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Get certificate authorities from a secret, if the secret does not exist,
@@ -150,7 +162,7 @@ func (c *CertificateManager) saveCertificateAuthorities(
 // When checking the certificate, if an existing certificate is found and the certificate is about to expire,
 // in the case of auto being false, it will be prompted in the form of a log and will not affect
 // the issuance of service certificates.
-func (c *CertificateManager) getCertificateAuthorities(ctx context.Context, pemKeyPairs []PEMkeyPair) ([]*CertificateAuthority, error) {
+func (c *CertificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair) ([]*CertificateAuthority, error) {
 	var cas []*CertificateAuthority
 
 	for _, keyPair := range pemKeyPairs {
@@ -165,24 +177,22 @@ func (c *CertificateManager) getCertificateAuthorities(ctx context.Context, pemK
 		cas = append(cas, ca)
 	}
 
-	logger.V(0).Info("Found vaild certificate authorities", "count", len(cas))
-
 	if len(cas) == 0 {
 		if !c.auto {
-			logger.V(0).Info("Could not find any certificate authorities, and auto-generate is disabled, please create manually")
-			return nil, ErrCACertificateNotFound
+			return nil, fmt.Errorf(
+				`could not find any certificate authorities from secret: {"name": %s, "namespace": %s}, and auto-generate is %s, please create manually`,
+				c.name,
+				c.namespace,
+				strconv.FormatBool(c.auto),
+			)
 		}
 
-		logger.V(1).Info("Could not find any certificate authorities, created a new self-signed certificate authority")
-		ca, err := c.createSelfSignedCertificateAuthority(c.caCertficateLifetime)
+		logger.V(0).Info("Could not find any certificate authorities, created a new self-signed certificate authority", "name", c.name, "namespace", c.namespace, "auto", c.auto)
+		ca, err := c.createSelfSignedCertificateAuthority()
 		if err != nil {
 			return nil, err
 		}
 
-		logger.V(0).Info("Could not find any certificate authorities, created a new self-signed certificate authority",
-			"serialNumber", ca.SerialNumber(),
-			"notAfter", ca.Certificate.NotAfter,
-		)
 		cas = append(cas, ca)
 	}
 
@@ -193,41 +203,44 @@ func (c *CertificateManager) getCertificateAuthorities(ctx context.Context, pemK
 		return nil, err
 	}
 
-	// save certificate authorities
-	if err := c.saveCertificateAuthorities(ctx, cas); err != nil {
-		return nil, err
-	}
-
 	return cas, nil
 }
 
-// create a new self-signed certificate authority
-func (c *CertificateManager) createSelfSignedCertificateAuthority(
-	caCertficateLifetime time.Duration,
-) (*CertificateAuthority, error) {
-	notAfter := time.Now().Add(caCertficateLifetime)
+// create a new self-signed certificate authority only no certificate authority is found
+func (c *CertificateManager) createSelfSignedCertificateAuthority() (*CertificateAuthority, error) {
+	notAfter := time.Now().Add(c.caCertficateLifetime)
 	ca, err := NewSelfSignedCertificateAuthority(notAfter, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	logger.V(0).Info("Created new self-signed certificate authority", "notAfter", ca.Certificate.NotAfter)
+	logger.V(0).Info("Created new self-signed certificate authority", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter)
 	return ca, nil
 }
 
-func (c *CertificateManager) rotateCertificateAuthority(
-	cas []*CertificateAuthority,
-) ([]*CertificateAuthority, error) {
-
-	if len(cas) == 0 {
-		return nil, ErrCACertificateNotFound
-	}
-
-	var newestCA *CertificateAuthority
-	for _, ca := range cas {
-		if newestCA == nil || ca.Certificate.NotAfter.After(newestCA.Certificate.NotAfter) {
-			newestCA = ca
+// sort ca by ca.Certificate.NotAfter as ascending
+func (c *CertificateManager) sort(cas []*CertificateAuthority) {
+	slices.SortFunc(cas, func(i, j *CertificateAuthority) int {
+		// i < j return -1
+		if i.Certificate.NotAfter.Before(j.Certificate.NotAfter) {
+			return -1
 		}
+		// i > j return 1
+		if i.Certificate.NotAfter.After(j.Certificate.NotAfter) {
+			return 1
+		}
+		// i == j
+		return 0
+	})
+}
+
+// rotate certificate authority
+// if the certificate authority is about to expire, it will create a new certificate authority
+func (c *CertificateManager) rotateCertificateAuthority(cas []*CertificateAuthority) ([]*CertificateAuthority, error) {
+	if len(cas) == 0 {
+		return nil, errors.New("certificate authorities is empty")
 	}
+
+	newestCA := cas[len(cas)-1]
 
 	if time.Now().Add(c.caCertficateLifetime / 2).After(newestCA.Certificate.NotAfter) {
 		if c.auto {
@@ -256,37 +269,65 @@ func (c *CertificateManager) rotateCertificateAuthority(
 	return cas, nil
 }
 
-func (c *CertificateManager) GetCertificateAuthority(
-	atAfter time.Time,
-) (*CertificateAuthority, error) {
+func (c *CertificateManager) getAliveCertificateAuthority(atAfter time.Time, cas []*CertificateAuthority) (*CertificateAuthority, error) {
+	cas = slices.DeleteFunc(cas, func(ca *CertificateAuthority) bool {
+		return ca.Certificate.NotAfter.Before(atAfter)
+	})
 
-	cas := c.certificateAuthorities
-
-	if len(cas) == 0 {
-		return nil, ErrCACertificateNotFound
-	}
-
-	filtedCAs := []*CertificateAuthority{}
-
-	for _, ca := range cas {
-		if ca.Certificate.NotAfter.After(atAfter) {
-			filtedCAs = append(filtedCAs, ca)
-		} else {
-			logger.V(0).Info("Certificate authority expired time before max certificate expired time in secret class configed",
-				"serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter,
-			)
+	oldestCA := slices.MinFunc(cas, func(a, b *CertificateAuthority) int {
+		if a.Certificate.NotAfter.Before(b.Certificate.NotAfter) {
+			return -1
 		}
-	}
-
-	// oldese certificate authority
-	certificateAuthority := filtedCAs[0]
-
-	for _, ca := range filtedCAs {
-		if ca.Certificate.NotAfter.Before(certificateAuthority.Certificate.NotAfter) {
-			certificateAuthority = ca
+		if a.Certificate.NotAfter.After(b.Certificate.NotAfter) {
+			return 1
 		}
-	}
-	logger.V(5).Info("Get certificate authority to issue cert", "serialNumber", certificateAuthority.SerialNumber(), "notAfter", certificateAuthority.Certificate.NotAfter)
+		return 0
+	})
+	logger.V(0).Info("Get alive certificate authority", "serialNumber", oldestCA.SerialNumber(), "notAfter", oldestCA.Certificate.NotAfter)
 
-	return certificateAuthority, nil
+	return oldestCA, nil
+}
+
+func (c *CertificateManager) GetCertificateAuthority(ctx context.Context, atAfter time.Time) (*CertificateAuthority, error) {
+	// retry to get certificate authority
+	// if the secret is modified by other clients, it will raise a conflict error
+	// we should get the latest object and retry from the beginning.
+	caMutex.Lock()
+	defer caMutex.Unlock()
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		pemKeyPairs, err := c.getPEMKeyPairsFromSecret(ctx)
+		if err != nil {
+			return err
+		}
+
+		c.cas, err = c.getCertificateAuthorities(pemKeyPairs)
+		if err != nil {
+			return err
+		}
+
+		if len(c.cas) == 0 {
+			return errors.New("certificate authorities is empty")
+		}
+
+		return c.updateCertificateAuthoritiesToSecret(ctx, c.cas)
+	}); err != nil {
+		return nil, err
+	}
+
+	ca, err := c.getAliveCertificateAuthority(atAfter, c.cas)
+	if err != nil {
+		return nil, err
+	}
+
+	return ca, nil
+}
+
+// GetTrustAnchors returns the all ca certificates
+func (c *CertificateManager) GetTrustAnchors() []*Certificate {
+	var trustAnchors []*Certificate
+	for _, ca := range c.cas {
+		// No not publish the private key to other certificates
+		trustAnchors = append(trustAnchors, &Certificate{Certificate: ca.Certificate})
+	}
+	return trustAnchors
 }
