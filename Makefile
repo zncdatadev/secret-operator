@@ -467,7 +467,7 @@ chainsaw-setup: manifests kustomize ## Run the chainsaw setup
 
 .PHONY: chainsaw-test
 chainsaw-test: chainsaw ## Run the chainsaw test
-	KUBECONFIG=$(KIND_KUBECONFIG) $(CHAINSAW) test --test-dir ./test/e2e/tls
+	KUBECONFIG=$(KIND_KUBECONFIG) $(CHAINSAW) test --test-dir ./test/e2e/
 
 .PHONY: chainsaw-cleanup
 chainsaw-cleanup: manifests kustomize ## Run the chainsaw cleanup

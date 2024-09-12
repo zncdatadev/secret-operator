@@ -7,17 +7,18 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	logger = ctrl.Log.WithName("ca-manager")
+	logger  = ctrl.Log.WithName("ca-manager")
+	caMutex sync.Mutex
 )
 
 type CertificateManager struct {
@@ -85,26 +86,18 @@ func (c *CertificateManager) updateSecret(ctx context.Context, data map[string][
 }
 
 func (c *CertificateManager) secretCreateIfDoesNotExist(ctx context.Context) error {
-	err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, c.secret)
-	if err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			return err
-		}
-		logger.V(1).Info("Could not find secret, create a new secret", "name", c.name, "namespace", c.namespace)
-		if err := c.client.Create(ctx, c.secret); err != nil {
-			if apierrors.IsAlreadyExists(err) {
-				logger.V(1).Info("Secret already exists, get the latest secret", "name", c.name, "namespace", c.namespace)
-				if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.name}, c.secret); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-		logger.V(1).Info("Created a new secret", "name", c.name, "namespace", c.namespace)
+	if c.secret.UID != "" {
+		return nil
 	}
-	logger.V(1).Info("Found secret", "name", c.name, "namespace", c.namespace)
+
+	logger.V(1).Info("Could not find secret, create a new secret", "name", c.name, "namespace", c.namespace, "auto", c.auto)
+	if err := c.client.Create(ctx, c.secret); err != nil {
+		return err
+	}
+
+	logger.V(1).Info("Created a new secret", "name", c.name, "namespace", c.namespace, "auto", c.auto)
 	return nil
+
 }
 
 func (c CertificateManager) getPEMKeyPairsFromSecret(ctx context.Context) ([]PEMkeyPair, error) {
@@ -299,6 +292,8 @@ func (c *CertificateManager) GetCertificateAuthority(ctx context.Context, atAfte
 	// retry to get certificate authority
 	// if the secret is modified by other clients, it will raise a conflict error
 	// we should get the latest object and retry from the beginning.
+	caMutex.Lock()
+	defer caMutex.Unlock()
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		pemKeyPairs, err := c.getPEMKeyPairsFromSecret(ctx)
 		if err != nil {
