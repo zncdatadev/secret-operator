@@ -8,6 +8,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -15,6 +16,7 @@ import (
 
 var (
 	kadminLogger = ctrl.Log.WithName("kadmin")
+	mutex        sync.Mutex
 )
 
 type Kadmin struct {
@@ -149,8 +151,12 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 }
 
 // AddPrincipal adds a new principal
+// If a principal already exists, it kadmind not return an error.
 // usage: https://web.mit.edu/kerberos/krb5-latest/doc/admin/admin_commands/kadmin_local.html#add-principal
 func (k *Kadmin) AddPrincipal(principal string) error {
+	// Add a mutex to avoid adding the same principal concurrently
+	mutex.Lock()
+	defer mutex.Unlock()
 	queries := []string{
 		"addprinc",
 		"-randkey", // "-randkey" flag is used to generate a random key for the principal
