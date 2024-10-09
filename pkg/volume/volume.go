@@ -156,11 +156,11 @@ func (v SecretVolumeSelector) encodeScope() string {
 	return strings.Join(scopes, ",")
 }
 
-func (v SecretVolumeSelector) decodeScope(scope string) SecretScope {
+func (v SecretVolumeSelector) decodeScope(scopes string) SecretScope {
 	secretScope := SecretScope{}
 
-	for _, scopes := range strings.Split(scope, ",") {
-		kv := strings.Split(scopes, "=")
+	for _, scope := range strings.Split(scopes, ",") {
+		kv := strings.Split(scope, "=")
 		switch kv[0] {
 		case string(ScopePod):
 			secretScope.Pod = ScopePod
@@ -171,7 +171,7 @@ func (v SecretVolumeSelector) decodeScope(scope string) SecretScope {
 		case ScopeListenerVolume:
 			secretScope.ListenerVolumes = append(secretScope.ListenerVolumes, kv[1])
 		default:
-			logger.V(0).Info("Unknown scope, skip it", "scope name", kv[0], "scope value", kv[1])
+			logger.V(0).Info("Unknown scope, skip it", "scope", scope)
 		}
 	}
 	return secretScope

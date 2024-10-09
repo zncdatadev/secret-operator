@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: search-ns
+  name: search-with-pod-scope
 status:
   phase: Running
   containerStatuses:

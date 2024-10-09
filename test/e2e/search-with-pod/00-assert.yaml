@@ -1,6 +1,0 @@
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: secretcsi-sample-csi
-status:
-  (numberReady >= `1`): true
