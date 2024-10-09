@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: search-ns
+  labels:
+    name: search-ns
+spec:
+  containers:
+  - name: pod
+    image: busybox:stable
+    securityContext:
+      runAsUser: 9999
+      runAsGroup: 9999
+    command:
+    - "sh"
+    - "-c"
+    - |
+      trap 'echo "Exiting..."; exit 1' SIGINT SIGTERM
+      echo "Loop is running... (Press Ctrl+C or send SIGTERM to exit)"
+      while true; do
+        sleep 1
+        tail -f /opt/secret/mode || (sleep 1 && echo 'Waiting for content...')
+      done
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    volumeMounts:
+    - name: secret
+      mountPath: /opt/secret
+    readinessProbe:
+      exec:
+        command: ["sh", "-c", "cat /opt/secret/mode | grep -q search-default-ns"]
+      initialDelaySeconds: 1
+      periodSeconds: 5
+  volumes:
+  - name: secret
+    ephemeral:
+      volumeClaimTemplate:
+        metadata:
+          annotations:
+            secrets.zncdata.dev/class: search-default-ns
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: secrets.zncdata.dev
+          resources:
+            requests:
+              storage: 1Mi

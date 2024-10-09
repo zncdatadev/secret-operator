@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pod
+  name: search-with-pod
   labels:
-    name: pod
+    name: search-with-pod
 spec:
   containers:
   - name: pod
@@ -30,7 +30,7 @@ spec:
       mountPath: /opt/secret
     readinessProbe:
       exec:
-        command: ["sh", "-c", "cat /opt/secret/mode | grep -q default"]
+        command: ["sh", "-c", "cat /opt/secret/mode | grep -q search-with-pod"]
       initialDelaySeconds: 1
       periodSeconds: 5
   volumes:
@@ -39,7 +39,7 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: search-default-ns
+            secrets.zncdata.dev/class: search-with-pod
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: secrets.zncdata.dev
