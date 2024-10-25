@@ -5,8 +5,6 @@ metadata:
 spec:
   steps:
     - try:
-      - apply:
-          file: secretcsi.yaml
       - assert:
           file: secretcsi-assert.yaml
     - try:
