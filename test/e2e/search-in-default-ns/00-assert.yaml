@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: secretcsi-sample-csi
+  name: secret-operator-daemonset
+  namespace: kubedoop-operators
 status:
   (numberReady >= `1`): true

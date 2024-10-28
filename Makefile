@@ -382,6 +382,46 @@ catalog-buildx: ## Build and push a catalog image for cross-platform support
 	- $(CONTAINER_TOOL) buildx rm project-v3-builder
 
 ##@ E2E
+##@ helm
+
+HELM_VERSION ?= v3.16.2
+HELM = $(LOCALBIN)/helm
+
+.PHONY: helm
+helm: ## Download helm locally if necessary.
+ifeq (,$(shell which $(HELM)))
+ifeq (,$(shell which helm 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(HELM)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-$${OS}-$${ARCH}.tar.gz | tar -xz -C $(LOCALBIN) --strip-components=1 $${OS}-$${ARCH}/helm ;\
+	chmod +x $(HELM) ;\
+	}
+else
+HELM = $(shell which helm)
+endif
+endif
+
+HELM_DEPENDS ?= listener-operator
+TEST_NAMESPACE = kubedoop-operators
+
+.PHONY: helm-install-depends
+helm-install-depends: ## Install the helm chart depends.
+	$(HELM) repo add kubedoop https://zncdatadev.github.io/kubedoop-helm-charts/
+ifneq ($(strip $(HELM_DEPENDS)),)
+	for dep in $(HELM_DEPENDS); do \
+		$(HELM) upgrade --install --create-namespace --namespace $(TEST_NAMESPACE) --wait $$dep kubedoop/$$dep --version $(VERSION); \
+	done
+endif
+
+.PHONY: helm-install
+helm-install: helm-install-depends ## Install the helm chart.
+	$(HELM) upgrade --install --create-namespace --namespace $(TEST_NAMESPACE) --wait $(PROJECT_NAME) kubedoop/$(PROJECT_NAME) --version $(VERSION)
+
+.PHONY: helm-uninstall
+helm-uninstall: ## Uninstall the helm chart.
+	$(HELM) uninstall --namespace $(TEST_NAMESPACE) $(PROJECT_NAME)
 
 # kind
 KIND_VERSION ?= v0.23.0
@@ -394,6 +434,7 @@ KIND_IMAGE ?= kindest/node:v${KINDTEST_K8S_VERSION}
 KIND_KUBECONFIG ?= kind-kubeconfig-$(KINDTEST_K8S_VERSION)
 # eg: secret-operator-1.26.14
 KIND_CLUSTER_NAME ?= ${PROJECT_NAME}-$(KINDTEST_K8S_VERSION)
+KIND_CONFIG ?= test/e2e/kind-config.yaml
 
 
 .PHONY: kind
@@ -413,15 +454,10 @@ endif
 
 OLM_VERSION ?= v0.27.0
 
-# Create a kind cluster, install ingress-nginx, and wait for it to be available.
+# Create a kind cluster
 .PHONY: kind-create
 kind-create: kind ## Create a kind cluster.
-	$(KIND) create cluster --config test/e2e/kind-config.yaml --image $(KIND_IMAGE) --name $(KIND_CLUSTER_NAME) --kubeconfig $(KIND_KUBECONFIG) --wait 120s
-	make kind-setup
-
-.PHONY: kind-setup
-kind-setup: kind ## setup kind cluster base environment
-	KUBECONFIG=$(KIND_KUBECONFIG) sh -c 'curl -sSL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/$(OLM_VERSION)/install.sh | bash -s $(OLM_VERSION)'
+	$(KIND) create cluster --config $(KIND_CONFIG) --image $(KIND_IMAGE) --name $(KIND_CLUSTER_NAME) --kubeconfig $(KIND_KUBECONFIG) --wait 120s
 
 .PHONY: kind-delete
 kind-delete: kind ## Delete a kind cluster.
@@ -432,9 +468,9 @@ kind-delete: kind ## Delete a kind cluster.
 CHAINSAW_VERSION ?= v0.2.8
 CHAINSAW = $(LOCALBIN)/chainsaw
 
-# Use `grep 0.2.6 > /dev/null` instead of `grep -q 0.2.6`. It will not be able to determine the version number, 
+# Use `grep 0.2.6 > /dev/null` instead of `grep -q 0.2.6`. It will not be able to determine the version number,
 # although the execution in the shell is normal, but in the makefile does fail to understand the mechanism in the makefile
-# The operation ends by using `touch` to change the time of the file so that its timestamp is further back than the directory, 
+# The operation ends by using `touch` to change the time of the file so that its timestamp is further back than the directory,
 # so that no subsequent logic is performed after the `chainsaw` check is successful in relying on the `$(CHAINSAW)` target.
 .PHONY: chainsaw
 chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
@@ -458,17 +494,15 @@ $(CHAINSAW): $(LOCALBIN)
 	}
 
 .PHONY: chainsaw-setup
-chainsaw-setup: manifests kustomize ## Run the chainsaw setup
-	@echo "\nSetup chainsaw test environment"
+chainsaw-setup: ## Run the chainsaw setup
 	make docker-build
-	make csi-docker-build
-	$(KIND) --name $(KIND_CLUSTER_NAME) load docker-image $(IMG) $(CSIDRIVER_IMG)
-	KUBECONFIG=$(KIND_KUBECONFIG) make deploy
+	$(KIND) --name $(KIND_CLUSTER_NAME) load docker-image $(IMG)
+	KUBECONFIG=$(KIND_KUBECONFIG) make helm-install
 
 .PHONY: chainsaw-test
 chainsaw-test: chainsaw ## Run the chainsaw test
-	KUBECONFIG=$(KIND_KUBECONFIG) $(CHAINSAW) test --test-dir ./test/e2e/
+	KUBECONFIG=$(KIND_KUBECONFIG) $(CHAINSAW) test --cluster cluster-1=$(KIND_KUBECONFIG) --test-dir ./test/e2e/
 
 .PHONY: chainsaw-cleanup
-chainsaw-cleanup: manifests kustomize ## Run the chainsaw cleanup
-	KUBECONFIG=$(KIND_KUBECONFIG) make undeploy 
+chainsaw-cleanup: ## Run the chainsaw cleanup
+	KUBECONFIG=$(KIND_KUBECONFIG) make helm-uninstall
