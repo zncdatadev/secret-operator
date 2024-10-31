@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.23 AS builder
+FROM quay.io/zncdatadev/go-devel:1.23.2-kubedoop0.0.0-dev AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG LDFLAGS
@@ -25,15 +25,16 @@ COPY pkg/ pkg/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -ldflags "${LDFLAGS}" -o csi-driver cmd/csi_driver/main.go
 
-FROM debian:bookworm-slim
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        krb5-user \
-        libkrb5-3 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN microdnf -y update \
+    && microdnf install -y \
+        cyrus-sasl \
+        hostname \
+        krb5-workstation \
+        openssl \
+    && microdnf clean \
+    && rm -rf /var/cache/yum
 
 WORKDIR /
 COPY --from=builder /workspace/csi-driver .
