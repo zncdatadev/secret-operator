@@ -33,7 +33,7 @@ RUN microdnf -y update \
         hostname \
         krb5-workstation \
         openssl \
-    && microdnf clean \
+    && microdnf clean all\
     && rm -rf /var/cache/yum
 
 WORKDIR /

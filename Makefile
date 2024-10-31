@@ -496,7 +496,8 @@ $(CHAINSAW): $(LOCALBIN)
 .PHONY: chainsaw-setup
 chainsaw-setup: ## Run the chainsaw setup
 	make docker-build
-	$(KIND) --name $(KIND_CLUSTER_NAME) load docker-image $(IMG)
+	make csi-docker-build
+	$(KIND) --name $(KIND_CLUSTER_NAME) load docker-image $(IMG) $(CSIDRIVER_IMG)
 	KUBECONFIG=$(KIND_KUBECONFIG) make helm-install
 
 .PHONY: chainsaw-test
