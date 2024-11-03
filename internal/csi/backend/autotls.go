@@ -200,11 +200,11 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		notAfter,
 	)
 
-	logger.Info("Signed certificate", "notAfter", notAfter, "addresses", addresses, "certLife", certLife, "certSerialNumber", cert.SerialNumber())
-
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Info("Signed certificate", "notAfter", notAfter, "addresses", addresses, "certLife", certLife, "certSerialNumber", cert.SerialNumber())
 
 	data, err := a.certificateConvert(cert)
 	if err != nil {
