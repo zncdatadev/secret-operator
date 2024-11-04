@@ -29,6 +29,10 @@ type Certificate struct {
 	privateKey  *rsa.PrivateKey
 }
 
+func (c *Certificate) SerialNumber() string {
+	return formatSerialNumber(c.Certificate.SerialNumber)
+}
+
 func NewCertificateFromData(certPEM []byte, keyPEM []byte) (*Certificate, error) {
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 
@@ -119,7 +123,10 @@ func (c *CertificateAuthority) CertificatePEM() []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Certificate.Raw})
 }
 
-func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Certificate, error) {
+func (c *CertificateAuthority) SignCertificate(
+	addresses []pod_info.Address,
+	extKeyUsage []x509.ExtKeyUsage,
+	notAfter time.Time) (*Certificate, error) {
 	// Generate a new private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -136,17 +143,35 @@ func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Cer
 		return nil, err
 	}
 
-	// Create a self-signed certificate
-	template.IsCA = false
-	template.BasicConstraintsValid = true
-	template.SerialNumber = serialNumber
-	template.Issuer = c.Certificate.Subject
-	template.SubjectKeyId = publicKeySum[:]
-	template.AuthorityKeyId = c.Certificate.SubjectKeyId
-	template.PublicKey = &privateKey.PublicKey
-	template.NotBefore = time.Now()
-	// see http://golang.org/pkg/crypto/x509/#KeyUsage
-	template.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
+	template := &x509.Certificate{
+		Subject:               pkix.Name{CommonName: "generated certificate for pod"},
+		IsCA:                  false,
+		BasicConstraintsValid: true,
+		SerialNumber:          serialNumber,
+		Issuer:                c.Certificate.Subject,
+		SubjectKeyId:          publicKeySum[:],
+		AuthorityKeyId:        c.Certificate.SubjectKeyId,
+		PublicKey:             &privateKey.PublicKey,
+		NotBefore:             time.Now(),
+		NotAfter:              notAfter,
+		// see http://golang.org/pkg/crypto/x509/#KeyUsage
+		KeyUsage: x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+	}
+
+	if extKeyUsage != nil {
+		template.ExtKeyUsage = extKeyUsage
+	}
+
+	for _, address := range addresses {
+		if address.IP != nil {
+			template.IPAddresses = append(template.IPAddresses, address.IP)
+		}
+		if address.Hostname != "" {
+			template.DNSNames = append(template.DNSNames, address.Hostname)
+		}
+	}
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, c.Certificate, &privateKey.PublicKey, c.privateKey)
 	if err != nil {
@@ -167,43 +192,17 @@ func (c *CertificateAuthority) SignCertificate(template *x509.Certificate) (*Cer
 }
 
 func (c *CertificateAuthority) SignServerCertificate(
-	commonName string,
 	addresses []pod_info.Address,
 	notAfter time.Time,
 ) (*Certificate, error) {
-
-	template := &x509.Certificate{
-		Subject: pkix.Name{
-			CommonName: commonName,
-		},
-		NotAfter: notAfter,
-
-		// see http://golang.org/pkg/crypto/x509/#ExtKeyUsage
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-	}
-
-	buildSANExt(template, addresses)
-
-	return c.SignCertificate(template)
+	return c.SignCertificate(addresses, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, notAfter)
 }
 
 func (c *CertificateAuthority) SignClientCertificate(
-	commonName string,
 	addresses []pod_info.Address,
 	notAfter time.Time,
 ) (*Certificate, error) {
-	template := &x509.Certificate{
-		Subject: pkix.Name{
-			CommonName: commonName,
-		},
-		NotAfter: notAfter,
-		// see http://golang.org/pkg/crypto/x509/#ExtKeyUsage
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-	}
-
-	buildSANExt(template, addresses)
-
-	return c.SignCertificate(template)
+	return c.SignCertificate(addresses, []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}, notAfter)
 }
 
 func (c *CertificateAuthority) Rotate(notAfter time.Time) (*CertificateAuthority, error) {
@@ -281,17 +280,6 @@ func NewSelfSignedCertificateAuthority(expeiry time.Time, parent *x509.Certifica
 func generateSerialNumber() (*big.Int, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 64)
 	return rand.Int(rand.Reader, serialNumberLimit)
-}
-
-func buildSANExt(template *x509.Certificate, addresses []pod_info.Address) {
-	for _, address := range addresses {
-		if address.IP != nil {
-			template.IPAddresses = append(template.IPAddresses, address.IP)
-		}
-		if address.Hostname != "" {
-			template.DNSNames = append(template.DNSNames, address.Hostname)
-		}
-	}
 }
 
 // Compute the SHA-256 hash of the public key

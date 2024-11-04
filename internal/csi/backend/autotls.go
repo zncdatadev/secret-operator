@@ -195,16 +195,12 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 
 	notAfter := time.Now().Add(certLife)
 
-	// Set empty cnName, then san critical extension forced to be used
-	// From RFC 5280, Section 4.2.1.6
-	cnName := ""
-
-	logger.Info("Signe certificate", "commonName", cnName, "notAfter", notAfter, "addresses", addresses)
 	cert, err := certificateAuthority.SignServerCertificate(
-		cnName,
 		addresses,
 		notAfter,
 	)
+
+	logger.Info("Signed certificate", "notAfter", notAfter, "addresses", addresses, "certLife", certLife, "certSerialNumber", cert.SerialNumber())
 
 	if err != nil {
 		return nil, err
