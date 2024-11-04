@@ -7,10 +7,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"regexp"
 	"time"
 
@@ -164,14 +166,33 @@ func (c *CertificateAuthority) SignCertificate(
 		template.ExtKeyUsage = extKeyUsage
 	}
 
+	var dnsNames []string
+	var ipAddresses []net.IP
 	for _, address := range addresses {
 		if address.IP != nil {
 			template.IPAddresses = append(template.IPAddresses, address.IP)
+			ipAddresses = append(ipAddresses, address.IP)
 		}
 		if address.Hostname != "" {
 			template.DNSNames = append(template.DNSNames, address.Hostname)
+			dnsNames = append(dnsNames, address.Hostname)
 		}
 	}
+
+	sanExt := &SubjectAltName{
+		DNSNames:    dnsNames,
+		IPAddresses: ipAddresses,
+	}
+
+	ext, err := sanExt.ToExtension()
+	if err != nil {
+		return nil, err
+	}
+	// From RFC 5280, Section 4.2.1.6:
+	// "If the subject field contains an empty sequence, then the issuer field MUST also contain an empty sequence and the subjectAltName extension MUST be marked as critical."
+	// golang x509 library automatically sets the critical flag if the subject field is empty.
+	// But we pass a invalid subject to the template, so we need to set the critical flag manually.
+	template.ExtraExtensions = append(template.ExtraExtensions, ext)
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, c.Certificate, &privateKey.PublicKey, c.privateKey)
 	if err != nil {
@@ -311,4 +332,70 @@ func formatSerialNumber(serialNumber *big.Int) string {
 	}
 
 	return formattedStr
+}
+
+type SubjectAltName struct {
+	DNSNames       []string // Domain Name System, e.g. www.example.com
+	IPAddresses    []net.IP // Internet Protocol, e.g. 172.10.2.9
+	EmailAddresses []string // Email, e.g. foo@example.com
+	URIs           []string // Uniform Resource Identifier, e.g. https://example.com
+}
+
+func (s *SubjectAltName) Marshal() ([]byte, error) {
+	var rawValues []asn1.RawValue
+
+	for _, dnsName := range s.DNSNames {
+		rawValues = append(rawValues, asn1.RawValue{
+			Class: asn1.ClassContextSpecific,
+			Tag:   2, // DNSName
+			Bytes: []byte(dnsName),
+		})
+	}
+
+	for _, ipAddress := range s.IPAddresses {
+		ip := ipAddress.To4()
+		if ip == nil {
+			ip = ipAddress
+		}
+
+		rawValues = append(rawValues, asn1.RawValue{
+			Class: asn1.ClassContextSpecific,
+			Tag:   7, // IPAddress
+			Bytes: ip,
+		})
+	}
+
+	for _, email := range s.EmailAddresses {
+		rawValues = append(rawValues, asn1.RawValue{
+			Class: asn1.ClassContextSpecific,
+			Tag:   1, // rfc822Name
+			Bytes: []byte(email),
+		})
+	}
+
+	for _, uri := range s.URIs {
+		rawValues = append(rawValues, asn1.RawValue{
+			Class: asn1.ClassContextSpecific,
+			Tag:   6, // URI
+			Bytes: []byte(uri),
+		})
+	}
+
+	value, err := asn1.Marshal(rawValues)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+func (s *SubjectAltName) ToExtension() (pkix.Extension, error) {
+	value, err := s.Marshal()
+	if err != nil {
+		return pkix.Extension{}, err
+	}
+	return pkix.Extension{
+		Id:       asn1.ObjectIdentifier{2, 5, 29, 17}, // OID for subjectAltName
+		Critical: true,                                // enforce that the certificate must be checked against the SAN
+		Value:    value,
+	}, nil
 }
