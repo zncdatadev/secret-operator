@@ -216,7 +216,7 @@ func (c *CertificateAuthority) SignServerCertificate(
 	addresses []pod_info.Address,
 	notAfter time.Time,
 ) (*Certificate, error) {
-	return c.SignCertificate(addresses, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, notAfter)
+	return c.SignCertificate(addresses, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}, notAfter)
 }
 
 func (c *CertificateAuthority) SignClientCertificate(
