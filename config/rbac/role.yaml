@@ -5,32 +5,12 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - ""
   resources:
   - events
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - nodes
+  - pods
+  - secrets
   verbs:
   - create
   - get
@@ -50,6 +30,7 @@ rules:
   - ""
   resources:
   - persistentvolumes
+  - serviceaccounts
   verbs:
   - create
   - delete
@@ -59,31 +40,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
+  - apps
   resources:
-  - pods
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
+  - daemonsets
   verbs:
   - create
   - delete
@@ -96,17 +55,6 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
   - clusterroles
   verbs:
   - create
@@ -120,31 +68,6 @@ rules:
   - secrets.zncdata.dev
   resources:
   - secretclasses
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - secrets.zncdata.dev
-  resources:
-  - secretclasses/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - secrets.zncdata.dev
-  resources:
-  - secretclasses/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - secrets.zncdata.dev
-  resources:
   - secretcsis
   verbs:
   - create
@@ -157,12 +80,14 @@ rules:
 - apiGroups:
   - secrets.zncdata.dev
   resources:
+  - secretclasses/finalizers
   - secretcsis/finalizers
   verbs:
   - update
 - apiGroups:
   - secrets.zncdata.dev
   resources:
+  - secretclasses/status
   - secretcsis/status
   verbs:
   - get
@@ -172,17 +97,6 @@ rules:
   - storage.k8s.io
   resources:
   - csidrivers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - storage.k8s.io
-  resources:
   - storageclasses
   verbs:
   - create
