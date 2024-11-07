@@ -1,0 +1,71 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secret-consumer-secret-consumer-shell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secret-consumer-shell
+  template:
+    metadata:
+      labels:
+        app: secret-consumer-shell
+    spec:
+      containers:
+      - name: secret-consumer-shell
+        image: registry.access.redhat.com/ubi9:9.4
+        tty: true
+        stdin: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        volumeMounts:
+        - name: auth
+          mountPath: /auth
+      volumes:
+      - name: auth
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                secrets.zncdata.dev/class: secret # k8sSearch will search the secret with the same label
+            spec:
+              storageClassName: secrets.zncdata.dev
+              accessModes: [ "ReadWriteOnce" ]
+              resources:
+                requests:
+                  storage: 1Mi
+      - name: caddy-config
+        configMap:
+          name: caddy-config
+
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret
+  labels:
+    # Secret must set the label to the same value with pvc template annonation by k8sSearch
+    secrets.zncdata.dev/class: secret
+type: Opaque
+stringData:
+  username: admin
+  password: admin
+
+---
+apiVersion: secrets.zncdata.dev/v1alpha1
+kind: SecretClass
+metadata:
+  name: secret
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
