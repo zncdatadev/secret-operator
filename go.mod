@@ -1,6 +1,6 @@
 module github.com/zncdatadev/secret-operator
 
-go 1.23.0
+go 1.23.2
 
 require (
 	github.com/container-storage-interface/spec v1.10.0
