@@ -1,0 +1,75 @@
+# Caddy HTTPS server that use TLS certificate by secret-operator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secret-consumer-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secret-consumer-nginx
+  template:
+    metadata:
+      labels:
+        app: secret-consumer-nginx
+    spec:
+      containers:
+      - name: caddy
+        image: caddy:2
+        ports:
+        - containerPort: 443
+          name: https
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
+        volumeMounts:
+        - name: tls
+          mountPath: /tls # secret-operator will auto generate tls.crt and tls.key and ca.crt
+        - name: caddy-config
+          mountPath: /etc/caddy
+      volumes:
+      - name: tls
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                secrets.zncdata.dev/class: tls
+                secrets.zncdata.dev/scope: node,pod,service=secret-consumer-nginx
+            spec:
+              storageClassName: secrets.zncdata.dev
+              accessModes: [ "ReadWriteOnce" ]
+              resources:
+                requests:
+                  storage: 1Mi
+      - name: caddy-config
+        configMap:
+          name: caddy-config
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy-config
+data:
+  Caddyfile: |
+    :443
+    tls /tls/tls.crt /tls/tls.key
+    respond "Hello, World!"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secret-consumer-nginx
+spec:
+  selector:
+    app: secret-consumer-nginx
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: https
