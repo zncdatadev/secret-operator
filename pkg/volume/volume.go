@@ -34,7 +34,8 @@ const (
 	CSIStorageEphemeral                     string = "csi.storage.k8s.io/ephemeral"
 	StorageKubernetesCSIProvisionerIdentity string = "storage.kubernetes.io/csiProvisionerIdentity"
 	VolumeKubernetesStorageProvisioner      string = "volume.kubernetes.io/storage-provisioner"
-	// https://kubernetes.io/docs/reference/labels-annotations-taints/#volume-beta-kubernetes-io-storage-provisioner-deprecated
+	// https://kubernetes.io/docs/reference/labels-annotations-taints/
+	// #volume-beta-kubernetes-io-storage-provisioner-deprecated
 	DeprecatedVolumeKubernetesStorageProvisioner string = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
@@ -50,13 +51,13 @@ const (
 
 type SecretVolumeSelector struct {
 	// Default values for volume context
-	Pod                      string `json:"csi.storage.k8s.io/pod.name"`
-	PodNamespace             string `json:"csi.storage.k8s.io/pod.namespace"`
-	PodUID                   string `json:"csi.storage.k8s.io/pod.uid"`
-	ServiceAccountName       string `json:"csi.storage.k8s.io/serviceAccount.name"`
-	Ephemeral                string `json:"csi.storage.k8s.io/ephemeral"`
-	CSIProvisionerIdIdentiry string `json:"storage.kubernetes.io/csiProvisionerIdentity"`
-	Provisioner              string `json:"volume.kubernetes.io/storage-provisioner"`
+	Pod                    string `json:"csi.storage.k8s.io/pod.name"`
+	PodNamespace           string `json:"csi.storage.k8s.io/pod.namespace"`
+	PodUID                 string `json:"csi.storage.k8s.io/pod.uid"`
+	ServiceAccountName     string `json:"csi.storage.k8s.io/serviceAccount.name"`
+	Ephemeral              string `json:"csi.storage.k8s.io/ephemeral"`
+	CSIProvisionerIdentity string `json:"storage.kubernetes.io/csiProvisionerIdentity"`
+	Provisioner            string `json:"volume.kubernetes.io/storage-provisioner"`
 
 	Class  string       `json:"secrets.zncdata.dev/class"`
 	Scope  SecretScope  `json:"secrets.zncdata.dev/scope"`
@@ -118,7 +119,8 @@ func (v SecretVolumeSelector) ToMap() map[string]string {
 		out[constants.AnnotationSecretsFormat] = string(v.Format)
 	}
 	if len(v.KerberosServiceNames) > 0 {
-		out[constants.AnnotationSecretsKerberosServiceNames] = strings.Join(v.KerberosServiceNames, KerberosServiceNamesSplitter)
+		out[constants.AnnotationSecretsKerberosServiceNames] =
+			strings.Join(v.KerberosServiceNames, KerberosServiceNamesSplitter)
 	}
 	if v.TlsPKCS12Password != "" {
 		out[constants.AnnotationSecretsPKCS12Password] = v.TlsPKCS12Password
@@ -192,7 +194,7 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 		case CSIStorageEphemeral:
 			v.Ephemeral = value
 		case StorageKubernetesCSIProvisionerIdentity:
-			v.CSIProvisionerIdIdentiry = value
+			v.CSIProvisionerIdentity = value
 		case VolumeKubernetesStorageProvisioner:
 			v.Provisioner = value
 		case DeprecatedVolumeKubernetesStorageProvisioner:
@@ -200,7 +202,8 @@ func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelect
 				"key", key,
 				"value", value,
 				"new key", VolumeKubernetesStorageProvisioner,
-				"reference", "https://kubernetes.io/docs/reference/labels-annotations-taints/#volume-beta-kubernetes-io-storage-provisioner-deprecated",
+				"reference", "https://kubernetes.io/docs/reference/labels-annotations-taints/"+
+					"#volume-beta-kubernetes-io-storage-provisioner-deprecated",
 			)
 		case constants.AnnotationSecretsClass:
 			v.Class = value

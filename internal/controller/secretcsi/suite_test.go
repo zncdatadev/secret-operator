@@ -34,7 +34,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -90,7 +90,7 @@ var _ = BeforeSuite(func() {
 	err = secretsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -107,11 +107,11 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	//go func() {
-	//	defer GinkgoRecover()
-	//	err = k8sManager.Start(ctx)
-	//	Expect(err).ToNot(HaveOccurred(), "failed to run manager")
-	//}()
+	// go func() {
+	// 	defer GinkgoRecover()
+	// 	err = k8sManager.Start(ctx)
+	// 	Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	// }()
 })
 
 var _ = AfterSuite(func() {

@@ -128,7 +128,11 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 // Usage: ktadd [-k[eytab] keytab] [-q] [-e keysaltlist] [-norandkey] [principal | -glob princ-exp] [...]
 func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 	keytab := path.Join(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+".keytab")
-	defer os.Remove(keytab)
+	defer func() {
+		if err := os.Remove(keytab); err != nil {
+			kadminLogger.Error(err, "Failed to remove keytab")
+		}
+	}()
 
 	queries := []string{
 		"ktadd",

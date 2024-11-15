@@ -142,15 +142,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# olm
-bundle.Dockerfile
-bundle
 
 **/__debug_*
 
 kind-kubeconfig*
-
-catalog.Dockerfile
-catalog
 
 kind-config-local.yaml

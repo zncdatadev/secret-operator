@@ -205,7 +205,7 @@ func (c *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, reque
 
 func (c *ControllerServer) ListVolumes(ctx context.Context, request *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	// impl list volumes
-	var entries []*csi.ListVolumesResponse_Entry
+	entries := make([]*csi.ListVolumesResponse_Entry, 0, len(c.volumes))
 	for volumeID, size := range c.volumes {
 		entries = append(entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{

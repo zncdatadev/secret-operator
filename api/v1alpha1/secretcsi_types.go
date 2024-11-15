@@ -43,16 +43,12 @@ const (
 // SecretCSISpec defines the desired state of SecretCSI
 type SecretCSISpec struct {
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CSIDriver *CSIDriverSpec `json:"csiDriver,omitempty"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NodeDriverRegistrar *NodeDriverRegistrarSpec `json:"nodeDriverRegistrar,omitempty"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CSIProvisioner *CSIProvisionerSpec `json:"csiProvisioner,omitempty"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	LivenessProbe *LivenessProbeSpec `json:"livenessProbe,omitempty"`
 }
 
@@ -155,8 +151,8 @@ type SecretCSIStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // SecretCSI is the Schema for the secretcsis API
 type SecretCSI struct {
@@ -167,15 +163,11 @@ type SecretCSI struct {
 	Status SecretCSIStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // SecretCSIList contains a list of SecretCSI
 type SecretCSIList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SecretCSI `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&SecretCSI{}, &SecretCSIList{})
 }

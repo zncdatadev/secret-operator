@@ -135,7 +135,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 //
 // Considering the length 63 limitation of Kubernetes annotations, we hash the volume ID to maintain the readability of the annotation
 // and its association with the volume. However, truncating the hash to the first 16 bytes may introduce collision risks.
-func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volume_id string, expiresTime *time.Time) error {
+func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID string, expiresTime *time.Time) error {
 	if pod.Annotations == nil {
 		pod.Annotations = make(map[string]string)
 	}
@@ -145,18 +145,18 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volume_id s
 		return nil
 	}
 
-	volume_tag_hash := sha256.New()
-	volume_tag_hash.Write([]byte("secrets.zncdata.dev/volume:"))
-	volume_tag_hash.Write([]byte(volume_id))
-	volume_tag := volume_tag_hash.Sum(nil)
+	volumeTagHash := sha256.New()
+	volumeTagHash.Write([]byte("secrets.zncdata.dev/volume:"))
+	volumeTagHash.Write([]byte(volumeID))
+	volumeTag := volumeTagHash.Sum(nil)
 	// get 16 bytes of volume tag, but it maybe cause collision vulnerability
-	volume_tag = volume_tag[:16]
+	volumeTag = volumeTag[:16]
 
-	annotationexpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volume_tag)
+	annotationExpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volumeTag)
 	expiresTimeStr := expiresTime.Format(time.RFC3339)
-	logger.V(5).Info("Update pod annotation", "pod", pod.Name, "key", annotationexpiresName, "value", expiresTimeStr)
+	logger.V(5).Info("Update pod annotation", "pod", pod.Name, "key", annotationExpiresName, "value", expiresTimeStr)
 
-	pod.Annotations[annotationexpiresName] = expiresTimeStr
+	pod.Annotations[annotationExpiresName] = expiresTimeStr
 
 	if err := n.client.Patch(ctx, pod, patch); err != nil {
 		return err
@@ -306,7 +306,9 @@ func (n *NodeServer) NodeGetCapabilities(ctx context.Context, request *csi.NodeG
 		}
 	}
 
-	var capabilities []*csi.NodeServiceCapability
+	capabilities := make([]*csi.NodeServiceCapability, 0, len([]csi.NodeServiceCapability_RPC_Type{
+		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+	}))
 
 	for _, capability := range []csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
