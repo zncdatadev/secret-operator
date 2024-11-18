@@ -1,0 +1,17 @@
+# Source: secret-operator/templates/csidriver.yaml
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: secrets.zncdata.dev
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: secret-operator
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  attachRequired: false
+  podInfoOnMount: true
+  fsGroupPolicy: File
+  volumeLifecycleModes:
+    - Ephemeral
+    - Persistent

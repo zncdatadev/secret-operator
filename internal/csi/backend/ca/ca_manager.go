@@ -163,7 +163,7 @@ func (c *CertificateManager) updateCertificateAuthoritiesToSecret(
 // in the case of auto being false, it will be prompted in the form of a log and will not affect
 // the issuance of service certificates.
 func (c *CertificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair) ([]*CertificateAuthority, error) {
-	var cas []*CertificateAuthority
+	cas := make([]*CertificateAuthority, 0)
 
 	for _, keyPair := range pemKeyPairs {
 		ca, err := NewCertificateAuthorityFromData(keyPair.CertPEMBlock, keyPair.KeyPEMBlock)
@@ -269,7 +269,7 @@ func (c *CertificateManager) rotateCertificateAuthority(cas []*CertificateAuthor
 	return cas, nil
 }
 
-func (c *CertificateManager) getAliveCertificateAuthority(atAfter time.Time, cas []*CertificateAuthority) (*CertificateAuthority, error) {
+func (c *CertificateManager) getAliveCertificateAuthority(atAfter time.Time, cas []*CertificateAuthority) *CertificateAuthority {
 	cas = slices.DeleteFunc(cas, func(ca *CertificateAuthority) bool {
 		return ca.Certificate.NotAfter.Before(atAfter)
 	})
@@ -285,7 +285,7 @@ func (c *CertificateManager) getAliveCertificateAuthority(atAfter time.Time, cas
 	})
 	logger.V(0).Info("Get alive certificate authority", "serialNumber", oldestCA.SerialNumber(), "notAfter", oldestCA.Certificate.NotAfter)
 
-	return oldestCA, nil
+	return oldestCA
 }
 
 func (c *CertificateManager) GetCertificateAuthority(ctx context.Context, atAfter time.Time) (*CertificateAuthority, error) {
@@ -313,18 +313,13 @@ func (c *CertificateManager) GetCertificateAuthority(ctx context.Context, atAfte
 	}); err != nil {
 		return nil, err
 	}
-
-	ca, err := c.getAliveCertificateAuthority(atAfter, c.cas)
-	if err != nil {
-		return nil, err
-	}
-
+	ca := c.getAliveCertificateAuthority(atAfter, c.cas)
 	return ca, nil
 }
 
 // GetTrustAnchors returns the all ca certificates
 func (c *CertificateManager) GetTrustAnchors() []*Certificate {
-	var trustAnchors []*Certificate
+	trustAnchors := make([]*Certificate, 0, len(c.cas))
 	for _, ca := range c.cas {
 		// No not publish the private key to other certificates
 		trustAnchors = append(trustAnchors, &Certificate{Certificate: ca.Certificate})

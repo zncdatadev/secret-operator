@@ -3,7 +3,7 @@ package secretcsi
 import "path/filepath"
 
 const (
-	CSIServiceAccountName     = "secerts-csi-zncdatadev"
+	CSIServiceAccountName     = "secrets-csi-zncdatadev"
 	CSIClusterRoleName        = "secrets-csi-zncdatadev"
 	CSIClusterRoleBindingName = "secrets-csi-zncdatadev"
 )
