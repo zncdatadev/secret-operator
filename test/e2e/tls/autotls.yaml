@@ -30,7 +30,7 @@ spec:
       containers:
       - name: auto-tls
         image: registry.access.redhat.com/ubi9/openjdk-21:1.20
-        command: 
+        command:
         - /bin/sh
         - -c
         - |
@@ -63,7 +63,7 @@ spec:
             echo "Server certificate in keystore is expired within $EXPIRESLIFE seconds." >&2
             exit 1
           fi
-      
+
           # Save the server certificate summary to a file
           keytool -list -keystore $TRUSTSTORE_FILE -storepass $P12PASSWORD >> /opt/summary/$POD_NAME.txt
           cat /opt/summary/$POD_NAME.txt
@@ -118,13 +118,13 @@ spec:
           volumeClaimTemplate:
             metadata:
               annotations:
-                secrets.zncdata.dev/class: tls
-                secrets.zncdata.dev/format: tls-p12
-                secrets.zncdata.dev/scope: pod,node
-                secrets.zncdata.dev/tlsPKCS12Password: changeit
+                secrets.kubedoop.dev/class: tls
+                secrets.kubedoop.dev/format: tls-p12
+                secrets.kubedoop.dev/scope: pod,node
+                secrets.kubedoop.dev/tlsPKCS12Password: changeit
             spec:
               accessModes: ["ReadWriteOnce"]
-              storageClassName: secrets.zncdata.dev
+              storageClassName: secrets.kubedoop.dev
               resources:
                 requests:
                   storage: 1Mi

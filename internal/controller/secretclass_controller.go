@@ -33,9 +33,9 @@ type SecretClassReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretclasses,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretclasses/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretclasses/finalizers,verbs=update
+// +kubebuilder:rbac:groups=secrets.kubedoop.dev,resources=secretclasses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=secrets.kubedoop.dev,resources=secretclasses/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=secrets.kubedoop.dev,resources=secretclasses/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

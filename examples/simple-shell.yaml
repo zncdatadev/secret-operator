@@ -34,9 +34,9 @@ spec:
           volumeClaimTemplate:
             metadata:
               annotations:
-                secrets.zncdata.dev/class: secret # k8sSearch will search the secret with the same label
+                secrets.kubedoop.dev/class: secret # k8sSearch will search the secret with the same label
             spec:
-              storageClassName: secrets.zncdata.dev
+              storageClassName: secrets.kubedoop.dev
               accessModes: [ "ReadWriteOnce" ]
               resources:
                 requests:
@@ -53,14 +53,14 @@ metadata:
   name: mysecret
   labels:
     # Secret must set the label to the same value with pvc template annonation by k8sSearch
-    secrets.zncdata.dev/class: secret
+    secrets.kubedoop.dev/class: secret
 type: Opaque
 stringData:
   username: admin
   password: admin
 
 ---
-apiVersion: secrets.zncdata.dev/v1alpha1
+apiVersion: secrets.kubedoop.dev/v1alpha1
 kind: SecretClass
 metadata:
   name: secret

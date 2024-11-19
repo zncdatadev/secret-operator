@@ -1,10 +1,10 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: secrets.zncdata.dev
+  name: secrets.kubedoop.dev
   labels:
     control-plane: controller-manager
     app.kubernetes.io/name: secret-operator
     app.kubernetes.io/instance: controller-manager
     app.kubernetes.io/managed-by: kustomize
-provisioner: secrets.zncdata.dev
+provisioner: secrets.kubedoop.dev

@@ -46,7 +46,7 @@ const (
 	// even if there is a time limit for elegant shutdown, there will still be a case of pod late restart
 	// resulting in certificate expiration.
 	// To avoid this, the pod expiration time is checked before this buffer time.
-	AnnotationSecretsCertRestartBuffer string = "secrets.zncdata.dev/" + "autoTlsCertRestartBuffer"
+	AnnotationSecretsCertRestartBuffer string = "secrets.kubedoop.dev/" + "autoTlsCertRestartBuffer"
 )
 
 type SecretVolumeSelector struct {
@@ -59,16 +59,16 @@ type SecretVolumeSelector struct {
 	CSIProvisionerIdentity string `json:"storage.kubernetes.io/csiProvisionerIdentity"`
 	Provisioner            string `json:"volume.kubernetes.io/storage-provisioner"`
 
-	Class  string       `json:"secrets.zncdata.dev/class"`
-	Scope  SecretScope  `json:"secrets.zncdata.dev/scope"`
-	Format SecretFormat `json:"secrets.zncdata.dev/format"`
+	Class  string       `json:"secrets.kubedoop.dev/class"`
+	Scope  SecretScope  `json:"secrets.kubedoop.dev/scope"`
+	Format SecretFormat `json:"secrets.kubedoop.dev/format"`
 
-	TlsPKCS12Password        string        `json:"secrets.zncdata.dev/tlsPKCS12Password"`
-	AutoTlsCertLifetime      time.Duration `json:"secrets.zncdata.dev/autoTlsCertLifetime"`
-	AutoTlsCertJitterFactor  float64       `json:"secrets.zncdata.dev/autoTlsCertJitterFactor"`
-	AutoTlsCertRestartBuffer time.Duration `json:"secrets.zncdata.dev/autoTlsCertRestartBuffer"`
+	TlsPKCS12Password        string        `json:"secrets.kubedoop.dev/tlsPKCS12Password"`
+	AutoTlsCertLifetime      time.Duration `json:"secrets.kubedoop.dev/autoTlsCertLifetime"`
+	AutoTlsCertJitterFactor  float64       `json:"secrets.kubedoop.dev/autoTlsCertJitterFactor"`
+	AutoTlsCertRestartBuffer time.Duration `json:"secrets.kubedoop.dev/autoTlsCertRestartBuffer"`
 
-	KerberosServiceNames []string `json:"secrets.zncdata.dev/kerberosServiceNames"`
+	KerberosServiceNames []string `json:"secrets.kubedoop.dev/kerberosServiceNames"`
 }
 
 type ListScope string

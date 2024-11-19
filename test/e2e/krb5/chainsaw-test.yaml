@@ -5,9 +5,9 @@ metadata:
 spec:
   bindings:
   - name: relam
-    value: ZNCDATA.DEV
+    value: KUBEDOOP.DEV # should be uppercase, must be the same as the realm in krb5.conf
   - name: kadminPassword
-    value: zncdatadev
+    value: kubedoopdev
   - name: kadminKeytabSecret
     value: kadmin-keytab
   steps:
@@ -68,7 +68,7 @@ spec:
             (keytab != ""): true
     - apply:
         resource:
-          apiVersion: secrets.zncdata.dev/v1alpha1
+          apiVersion: secrets.kubedoop.dev/v1alpha1
           kind: SecretClass
           metadata:
             name: kerberos

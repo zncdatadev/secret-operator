@@ -42,9 +42,9 @@ type SecretCSIReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretcsis,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretcsis/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=secrets.zncdata.dev,resources=secretcsis/finalizers,verbs=update
+// +kubebuilder:rbac:groups=secrets.kubedoop.dev,resources=secretcsis,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=secrets.kubedoop.dev,resources=secretcsis/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=secrets.kubedoop.dev,resources=secretcsis/finalizers,verbs=update
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=csidrivers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch

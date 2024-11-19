@@ -75,7 +75,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	// In this csi, we can get PVC annotations from volume context,
 	// because we deliver it from controller to node already.
 	// The following PVC annotations is required:
-	//   - secrets.zncdata.dev/class: <secret-class-name>
+	//   - secrets.kubedoop.dev/class: <secret-class-name>
 	volumeSelector, err := volume.NewVolumeSelectorFromMap(request.GetVolumeContext())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -131,7 +131,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 
 // updatePod updates the pod annotation with the secret expiration time.
 // The volume ID is hashed using sha256, and the first 16 bytes are used as the volume tag.
-// Then, the expiration time is written to the pod annotation with the key "secrets.zncdata.dev/restarter-expires-at:<volume_tag>".
+// Then, the expiration time is written to the pod annotation with the key "secrets.kubedoop.dev/restarter-expires-at:<volume_tag>".
 //
 // Considering the length 63 limitation of Kubernetes annotations, we hash the volume ID to maintain the readability of the annotation
 // and its association with the volume. However, truncating the hash to the first 16 bytes may introduce collision risks.
@@ -146,7 +146,7 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 	}
 
 	volumeTagHash := sha256.New()
-	volumeTagHash.Write([]byte("secrets.zncdata.dev/volume:"))
+	volumeTagHash.Write([]byte("secrets.kubedoop.dev/volume:"))
 	volumeTagHash.Write([]byte(volumeID))
 	volumeTag := volumeTagHash.Sum(nil)
 	// get 16 bytes of volume tag, but it maybe cause collision vulnerability
