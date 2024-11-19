@@ -96,7 +96,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 ##@ Build
 
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+PLATFORMS ?= linux/arm64,linux/amd64
 CSIDRIVER_IMG ?= ${REGISTRY}/secret-csi-driver:$(VERSION)
 
 # csi build variables
