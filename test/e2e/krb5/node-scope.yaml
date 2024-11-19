@@ -14,7 +14,7 @@ spec:
     - |
       set -ex
       dnf install krb5-workstation nginx -y
-      
+
       echo "Loop is running... (Press Ctrl+C or send SIGTERM to exit)"
       while ! test -f /opt/secret/keytab; do
         sleep 1
@@ -22,13 +22,13 @@ spec:
       done
 
       KERBEROS_REALM=$(grep -oP 'default_realm = \K.*' /opt/secret//krb5.conf)
-      
+
       klist -kt /opt/secret/keytab
 
       kinit -kt /opt/secret/keytab foo/$NODE_NAME@$KERBEROS_REALM
 
       klist -e
-      
+
       echo start nginx server
       nginx -g "daemon off;"
     env:
@@ -61,14 +61,14 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: kerberos
-            secrets.zncdata.dev/kerberosServiceNames: foo
-            secrets.zncdata.dev/scope: node
+            secrets.kubedoop.dev/class: kerberos
+            secrets.kubedoop.dev/kerberosServiceNames: foo
+            secrets.kubedoop.dev/scope: node
         spec:
           accessModes:
           - ReadWriteOnce
           resources:
             requests:
               storage: "1"
-          storageClassName: secrets.zncdata.dev
+          storageClassName: secrets.kubedoop.dev
           volumeMode: Filesystem

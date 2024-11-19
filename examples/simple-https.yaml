@@ -38,10 +38,10 @@ spec:
           volumeClaimTemplate:
             metadata:
               annotations:
-                secrets.zncdata.dev/class: tls
-                secrets.zncdata.dev/scope: node,pod,service=secret-consumer-nginx
+                secrets.kubedoop.dev/class: tls
+                secrets.kubedoop.dev/scope: node,pod,service=secret-consumer-nginx
             spec:
-              storageClassName: secrets.zncdata.dev
+              storageClassName: secrets.kubedoop.dev
               accessModes: [ "ReadWriteOnce" ]
               resources:
                 requests:

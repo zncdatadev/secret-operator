@@ -2,8 +2,8 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/secrets.zncdata.dev_secretclasses.yaml
-- bases/secrets.zncdata.dev_secretcsis.yaml
+- bases/secrets.kubedoop.dev_secretclasses.yaml
+- bases/secrets.kubedoop.dev_secretcsis.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

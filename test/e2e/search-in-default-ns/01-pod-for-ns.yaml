@@ -39,10 +39,10 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.zncdata.dev/class: search-default-ns
+            secrets.kubedoop.dev/class: search-default-ns
         spec:
           accessModes: ["ReadWriteOnce"]
-          storageClassName: secrets.zncdata.dev
+          storageClassName: secrets.kubedoop.dev
           resources:
             requests:
               storage: 1Mi

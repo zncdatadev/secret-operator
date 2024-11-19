@@ -44,7 +44,7 @@ resources:
 replacements:
 - source:
     kind: CustomResourceDefinition
-    name: secretcsis.secrets.zncdata.dev
+    name: secretcsis.secrets.kubedoop.dev
     fieldPath: spec.group
   targets:
     - select:
@@ -58,7 +58,7 @@ replacements:
 
 patchesJson6902: # patches can not be applied currently
   - target:
-      group: secrets.zncdata.dev
+      group: secrets.kubedoop.dev
       kind: SecretClass
       name: secret-operator-tls
       version: v1alpha1

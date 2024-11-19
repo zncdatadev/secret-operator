@@ -40,7 +40,7 @@ func (r *CSIDriver) build() *storage.CSIDriver {
 
 	obj := &storage.CSIDriver{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "secrets.zncdata.dev",
+			Name: "secrets.kubedoop.dev",
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "secret-operator",
 			},

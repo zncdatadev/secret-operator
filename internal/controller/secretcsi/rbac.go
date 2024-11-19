@@ -129,7 +129,7 @@ func (r *RBAC) buildClusterRole() *rbacv1.ClusterRole {
 				Verbs:     []string{"get", "list", "watch"},
 			},
 			{
-				APIGroups: []string{"secrets.zncdata.dev"},
+				APIGroups: []string{"secrets.kubedoop.dev"},
 				Resources: []string{"secretclasses"},
 				Verbs:     []string{"get", "list", "watch"},
 			},

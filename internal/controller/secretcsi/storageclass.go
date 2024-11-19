@@ -36,12 +36,12 @@ func (r *StorageClass) build() *storage.StorageClass {
 
 	obj := &storage.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "secrets.zncdata.dev",
+			Name: "secrets.kubedoop.dev",
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "secret-operator",
 			},
 		},
-		Provisioner: "secrets.zncdata.dev",
+		Provisioner: "secrets.kubedoop.dev",
 	}
 
 	return obj

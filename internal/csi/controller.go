@@ -119,7 +119,7 @@ func (c *ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVol
 //     When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
 //     'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
 //   - get PVC by k8s client with PVC name and namespace, then get annotations from PVC.
-//   - get 'secrets.zncdata.dev/class' and 'secrets.zncdata.dev/scope' from PVC annotations.
+//   - get 'secrets.kubedoop.dev/class' and 'secrets.kubedoop.dev/scope' from PVC annotations.
 func (c *ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (*volume.SecretVolumeSelector, error) {
 	pvcName, pvcNameExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/name"]
 	pvcNamespace, pvcNamespaceExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/namespace"]
