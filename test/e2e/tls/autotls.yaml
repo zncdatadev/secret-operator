@@ -71,8 +71,8 @@ spec:
           tail -f /dev/null
         resources:
           limits:
-            memory: "128Mi"
-            cpu: "500m"
+            memory: "512Mi"
+            cpu: "300m"
         securityContext:
           runAsUser: 0
           runAsGroup: 0

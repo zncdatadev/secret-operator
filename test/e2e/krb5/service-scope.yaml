@@ -57,7 +57,7 @@ spec:
       value: /opt/secret//krb5.conf
     resources:
       limits:
-        memory: "128Mi"
+        memory: "526Mi"
         cpu: "500m"
     ports:
     - containerPort: 80

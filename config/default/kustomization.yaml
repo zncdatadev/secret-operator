@@ -44,7 +44,7 @@ resources:
 replacements:
 - source:
     kind: CustomResourceDefinition
-    name: secretcsis.secrets.kubedoop.dev
+    name: secretclasses.secrets.kubedoop.dev
     fieldPath: spec.group
   targets:
     - select:

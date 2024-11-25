@@ -8,7 +8,7 @@ rules:
   - ""
   resources:
   - events
-  - nodes
+  - persistentvolumes
   - pods
   - secrets
   verbs:
@@ -21,54 +21,16 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
   - persistentvolumeclaims
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - persistentvolumes
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - secrets.kubedoop.dev
   resources:
   - secretclasses
-  - secretcsis
   verbs:
   - create
   - delete
@@ -81,14 +43,12 @@ rules:
   - secrets.kubedoop.dev
   resources:
   - secretclasses/finalizers
-  - secretcsis/finalizers
   verbs:
   - update
 - apiGroups:
   - secrets.kubedoop.dev
   resources:
   - secretclasses/status
-  - secretcsis/status
   verbs:
   - get
   - patch
@@ -99,10 +59,6 @@ rules:
   - csidrivers
   - storageclasses
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
