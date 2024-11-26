@@ -24,5 +24,3 @@ resources:
 # if you do not want those helpers be installed with your Project.
 - secretclass_editor_role.yaml
 - secretclass_viewer_role.yaml
-- secretcsi_editor_role.yaml
-- secretcsi_viewer_role.yaml

@@ -23,7 +23,7 @@ spec:
       done
     resources:
       limits:
-        memory: "128Mi"
+        memory: "512Mi"
         cpu: "500m"
     volumeMounts:
     - name: secret
