@@ -6,11 +6,11 @@ require (
 	github.com/container-storage-interface/spec v1.10.0
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-csi/csi-lib-utils v0.19.0
-	github.com/zncdatadev/operator-go v0.11.3-0.20241119024050-350d91b7a332
+	github.com/zncdatadev/operator-go v0.12.0
 	google.golang.org/grpc v1.68.0
-	k8s.io/api v0.31.2
-	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.2
+	k8s.io/api v0.31.3
+	k8s.io/apimachinery v0.31.3
+	k8s.io/client-go v0.31.3
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/controller-runtime v0.19.2
 	sigs.k8s.io/yaml v1.4.0
