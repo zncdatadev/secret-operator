@@ -3,7 +3,7 @@ module github.com/zncdatadev/secret-operator
 go 1.23.2
 
 require (
-	github.com/container-storage-interface/spec v1.10.0
+	github.com/container-storage-interface/spec v1.11.0
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-csi/csi-lib-utils v0.19.0
 	github.com/zncdatadev/operator-go v0.12.0
