@@ -30,6 +30,6 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Build and push operator
+      - name: Build and push csi-driver
         run: |
-          make docker-buildx
+          make csi-docker-buildx
