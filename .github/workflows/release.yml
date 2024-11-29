@@ -102,6 +102,11 @@ jobs:
     name: Release Image
     if: ${{ github.repository_owner == 'zncdatadev' }}
     runs-on: ubuntu-latest
+    needs:
+      - markdown-lint
+      - golang-lint
+      - golang-test
+      - chainsaw-test
     steps:
       - name: Clone the code
         uses: actions/checkout@v4
@@ -121,7 +126,6 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Build and push operator
-
+      - name: Build and push csi-driver
         run: |
-          make docker-buildx
+          make csi-docker-buildx
