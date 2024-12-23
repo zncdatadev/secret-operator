@@ -1,0 +1,33 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tls
+spec:
+  steps:
+    - try:
+      - apply:
+          file: tls-will-expires.yaml
+      - assert:
+          resource:
+            apiVersion: apps/v1
+            kind: StatefulSet
+            metadata:
+              name: tls-will-expires
+            status:
+              availableReplicas: 1
+              readyReplicas: 1
+      - sleep:
+          duration: 80s
+      - script:
+          content: |
+            # count k8s events with `Successfully assigned default/tls-will-expires-0 to ` filter with pod name
+            # If the count > 1, then the test is fine, pod is restarted when the certificate expires
+            restart_count=$(kubectl get events --field-selector involvedObject.name=tls-will-expires-0 --no-headers | grep 'Successfully assigned default/tls-will-expires-0 to ' | wc -l)
+            if [ $restart_count -gt 1 ]; then
+              echo "Pod tls-will-expires-0 is restarted when the certificate expires"
+            else
+              echo "Pod tls-will-expires-0 is not restarted when the certificate expires"
+              exit 1
+            fi
+          check:
+            ($error == null): true

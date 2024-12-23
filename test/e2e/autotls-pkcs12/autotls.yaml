@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: auto-tls
+  name: cert-store
 spec:
   resources:
     requests:
@@ -47,6 +47,8 @@ spec:
             exit 1
           fi
 
+          tail -f
+
           # Check if keystore contains more than 0 entries
           entryCount=$(keytool -list -keystore $KEYSTORE_FILE -storepass $P12PASSWORD | grep 'Your keystore contains' | awk '{print $4}')
           if [ $entryCount -gt 0 ]; then
@@ -56,11 +58,11 @@ spec:
               exit 1
           fi
 
-          # Check server certificate in keystore is not expired
+          # Check server certificate in keystore is not expired, default is 60 * 60 * 24 * 7 seconds
           EXPIRESLIFE=$((23 * 60 * 60)) # 23 hours
           openssl pkcs12 -in "$KEYSTORE_FILE" -passin pass:"$P12PASSWORD" -nokeys -clcerts -out "$SERVER_PEM_FILE"
           if ! openssl x509 -checkend $EXPIRESLIFE -noout -in "$SERVER_PEM_FILE"; then
-            echo "Server certificate in keystore is expired within $EXPIRESLIFE seconds." >&2
+            echo "Server certificate in keystore is expired within $EXPIRESLIFE ." >&2
             exit 1
           fi
 
@@ -112,7 +114,7 @@ spec:
       volumes:
       - name: certs
         persistentVolumeClaim:
-          claimName: auto-tls
+          claimName: cert-store
       - name: tls
         ephemeral:
           volumeClaimTemplate:

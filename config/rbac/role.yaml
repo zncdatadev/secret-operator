@@ -8,7 +8,6 @@ rules:
   - ""
   resources:
   - events
-  - persistentvolumes
   - pods
   - secrets
   verbs:
@@ -26,6 +25,18 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - secrets.kubedoop.dev

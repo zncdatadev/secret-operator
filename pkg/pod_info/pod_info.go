@@ -176,7 +176,7 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 			return nil, err
 		}
 		addresses = append(addresses, podAddresses...)
-		logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+		logger.V(1).Info("get scope pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
 			"addresses", podAddresses)
 	}
 

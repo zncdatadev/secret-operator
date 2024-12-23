@@ -22,7 +22,6 @@ spec:
           content: |
             set -ex
             kubectl -n $NAMESPACE get pods
-            kubectl -n 
       - describe:
           apiVersion: v1
           kind: Pod
