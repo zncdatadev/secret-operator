@@ -34,7 +34,7 @@ const (
 type AutoTlsBackend struct {
 	client                 client.Client
 	podInfo                *pod_info.PodInfo
-	volumeSelector         *volume.SecretVolumeSelector
+	volumeContext          *volume.SecretVolumeContext
 	maxCertificateLifeTime time.Duration
 
 	ca          *secretsv1alpha1.CASpec
@@ -44,7 +44,7 @@ type AutoTlsBackend struct {
 func NewAutoTlsBackend(
 	client client.Client,
 	podInfo *pod_info.PodInfo,
-	volumeSelector *volume.SecretVolumeSelector,
+	volumeContext *volume.SecretVolumeContext,
 	autotls *secretsv1alpha1.AutoTlsSpec,
 ) (*AutoTlsBackend, error) {
 	maxCertificateLifeTime, err := time.ParseDuration(autotls.MaxCertificateLifeTime)
@@ -60,7 +60,7 @@ func NewAutoTlsBackend(
 	return &AutoTlsBackend{
 		client:                 client,
 		podInfo:                podInfo,
-		volumeSelector:         volumeSelector,
+		volumeContext:          volumeContext,
 		maxCertificateLifeTime: maxCertificateLifeTime,
 		ca:                     autotls.CA,
 
@@ -78,12 +78,12 @@ func NewAutoTlsBackend(
 func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 	now := time.Now()
 
-	certLife := a.volumeSelector.AutoTlsCertLifetime
+	certLife := a.volumeContext.AutoTlsCertLifetime
 	if certLife == 0 {
 		logger.Info("Certificate lifetime is not set, using default certificate lifetime", "defaultCertLifeTime", DefaultCertLifeTime)
 		certLife = DefaultCertLifeTime
 	}
-	restarterBuffer := a.volumeSelector.AutoTlsCertRestartBuffer
+	restarterBuffer := a.volumeContext.AutoTlsCertRestartBuffer
 	if restarterBuffer == 0 {
 		logger.Info("Certificate restart buffer is not set, using default certificate restart buffer", "defaultCertBuffer", DefaultCertBuffer)
 		restarterBuffer = DefaultCertBuffer
@@ -97,7 +97,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 		certLife = a.maxCertificateLifeTime
 	}
 
-	jitterFactor := a.volumeSelector.AutoTlsCertJitterFactor
+	jitterFactor := a.volumeContext.AutoTlsCertJitterFactor
 
 	jitterFactorAllowedRange := 0.0 < jitterFactor && jitterFactor < 1.0
 	if !jitterFactorAllowedRange {
@@ -129,7 +129,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 }
 
 func (a *AutoTlsBackend) certificateFormat() volume.SecretFormat {
-	return a.volumeSelector.Format
+	return a.volumeContext.Format
 }
 
 // Convert the certificate to the format required by the volume
@@ -142,7 +142,7 @@ func (a *AutoTlsBackend) certificateConvert(cert *ca.Certificate) (map[string]st
 
 	if format == volume.SecretFormatTLSP12 {
 		logger.Info("Converting certificate to PKCS12 format")
-		password := a.volumeSelector.TlsPKCS12Password
+		password := a.volumeContext.TlsPKCS12Password
 
 		caCerts := make([]*x509.Certificate, 0, len(trustAnchors))
 		for _, caCert := range trustAnchors {

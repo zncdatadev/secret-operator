@@ -17,23 +17,23 @@ import (
 var _ IBackend = &KerberosBackend{}
 
 type KerberosBackend struct {
-	client         client.Client
-	podInfo        *pod_info.PodInfo
-	volumeSelector *volume.SecretVolumeSelector
-	spec           *secretsv1alpha1.KerberosKeytabSpec
+	client        client.Client
+	podInfo       *pod_info.PodInfo
+	volumeContext *volume.SecretVolumeContext
+	spec          *secretsv1alpha1.KerberosKeytabSpec
 }
 
 func NewKerberosBackend(
 	client client.Client,
 	podInfo *pod_info.PodInfo,
-	volumeSelector *volume.SecretVolumeSelector,
+	volumeContext *volume.SecretVolumeContext,
 	spec *secretsv1alpha1.KerberosKeytabSpec,
 ) *KerberosBackend {
 	return &KerberosBackend{
-		client:         client,
-		podInfo:        podInfo,
-		volumeSelector: volumeSelector,
-		spec:           spec,
+		client:        client,
+		podInfo:       podInfo,
+		volumeContext: volumeContext,
+		spec:          spec,
 	}
 }
 
@@ -116,7 +116,7 @@ func (k *KerberosBackend) getPrincipals(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	svcNames := k.volumeSelector.KerberosServiceNames
+	svcNames := k.volumeContext.KerberosServiceNames
 
 	principals := make([]string, 0)
 

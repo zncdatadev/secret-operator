@@ -20,23 +20,23 @@ type IBackend interface {
 }
 
 type Backend struct {
-	client         client.Client
-	podInfo        *pod_info.PodInfo
-	volumeSelector *volume.SecretVolumeSelector
-	secretClass    *secretsv1alpha1.SecretClass
+	client        client.Client
+	podInfo       *pod_info.PodInfo
+	volumeContext *volume.SecretVolumeContext
+	secretClass   *secretsv1alpha1.SecretClass
 }
 
 func NewBackend(
 	Client client.Client,
 	PodInfo *pod_info.PodInfo,
-	VolumeSelector *volume.SecretVolumeSelector,
+	volumeContext *volume.SecretVolumeContext,
 	secretClass *secretsv1alpha1.SecretClass,
 ) *Backend {
 	return &Backend{
-		client:         Client,
-		podInfo:        PodInfo,
-		volumeSelector: VolumeSelector,
-		secretClass:    secretClass,
+		client:        Client,
+		podInfo:       PodInfo,
+		volumeContext: volumeContext,
+		secretClass:   secretClass,
 	}
 }
 
@@ -48,7 +48,7 @@ func (b *Backend) backendImpl() (IBackend, error) {
 		return NewKerberosBackend(
 			b.client,
 			b.podInfo,
-			b.volumeSelector,
+			b.volumeContext,
 			backend.KerberosKeytab,
 		), nil
 	}
@@ -57,7 +57,7 @@ func (b *Backend) backendImpl() (IBackend, error) {
 		return NewAutoTlsBackend(
 			b.client,
 			b.podInfo,
-			b.volumeSelector,
+			b.volumeContext,
 			backend.AutoTls,
 		)
 	}
@@ -66,7 +66,7 @@ func (b *Backend) backendImpl() (IBackend, error) {
 		return NewK8sSearchBackend(
 			b.client,
 			b.podInfo,
-			b.volumeSelector,
+			b.volumeContext,
 			backend.K8sSearch,
 		)
 	}

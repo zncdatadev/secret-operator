@@ -18,14 +18,14 @@ import (
 type K8sSearchBackend struct {
 	client          client.Client
 	podInfo         *pod_info.PodInfo
-	volumeSelector  *volume.SecretVolumeSelector
+	volumeContext   *volume.SecretVolumeContext
 	searchNamespace *secretsv1alpha1.SearchNamespaceSpec
 }
 
 func NewK8sSearchBackend(
 	client client.Client,
 	podInfo *pod_info.PodInfo,
-	volumeSelector *volume.SecretVolumeSelector,
+	volumeContext *volume.SecretVolumeContext,
 	k8sSearchSpec *secretsv1alpha1.K8sSearchSpec,
 ) (*K8sSearchBackend, error) {
 
@@ -40,7 +40,7 @@ func NewK8sSearchBackend(
 	return &K8sSearchBackend{
 		client:          client,
 		podInfo:         podInfo,
-		volumeSelector:  volumeSelector,
+		volumeContext:   volumeContext,
 		searchNamespace: k8sSearchSpec.SearchNamespace,
 	}, nil
 }
@@ -99,10 +99,10 @@ func (k *K8sSearchBackend) getSecret(
 // The labels are based on the secret class and the volume selector.
 func (k *K8sSearchBackend) matchingLabels() map[string]string {
 	labels := map[string]string{
-		constants.AnnotationSecretsClass: k.volumeSelector.Class,
+		constants.AnnotationSecretsClass: k.volumeContext.Class,
 	}
 
-	scope := k.volumeSelector.Scope
+	scope := k.volumeContext.Scope
 	pod := k.GetPod()
 
 	if scope.Pod != "" {
@@ -116,8 +116,6 @@ func (k *K8sSearchBackend) matchingLabels() map[string]string {
 	if scope.Services != nil {
 		labels[constants.LabelSecretsService] = strings.Join(scope.Services, ",")
 	}
-
-	// TODO: add listener label when listener volume is supported
 
 	return labels
 }

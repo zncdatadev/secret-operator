@@ -18,39 +18,39 @@ var (
 )
 
 type PodInfo struct {
-	client         client.Client
-	Pod            *corev1.Pod
-	VolumeSelector *volume.SecretVolumeSelector
+	client client.Client
+	Pod    *corev1.Pod
+	Scope  *volume.SecretScope
 }
 
 func NewPodInfo(
 	client client.Client,
 	pod *corev1.Pod,
-	volumeSelector *volume.SecretVolumeSelector,
+	scope *volume.SecretScope,
 ) *PodInfo {
 	return &PodInfo{
-		client:         client,
-		Pod:            pod,
-		VolumeSelector: volumeSelector,
+		client: client,
+		Pod:    pod,
+		Scope:  scope,
 	}
 }
 
-func (p *PodInfo) GetPodName() string {
+func (p *PodInfo) getPodName() string {
 	return p.Pod.GetName()
 }
 
-func (p *PodInfo) GetPodNamespace() string {
+func (p *PodInfo) getPodNamespace() string {
 	return p.Pod.GetNamespace()
 }
 
-func (p *PodInfo) GetPodIP() string {
+func (p *PodInfo) getPodIP() string {
 	return p.Pod.Status.PodIP
 }
 
 // Get the pod's IP address
 // k8s assign ips for pod when pvc is successfully bound,
 // so it is empty when pvc is not bound
-func (p *PodInfo) GetPodIPs() []string {
+func (p *PodInfo) getPodIPs() []string {
 	ips := []string{}
 	for _, address := range p.Pod.Status.PodIPs {
 		ips = append(ips, address.IP)
@@ -58,12 +58,12 @@ func (p *PodInfo) GetPodIPs() []string {
 	return ips
 }
 
-func (p *PodInfo) GetNodeName() string {
+func (p *PodInfo) getNodeName() string {
 	return p.Pod.Spec.NodeName
 }
 
-func (p *PodInfo) GetNode(ctx context.Context) (*corev1.Node, error) {
-	nodeName := p.GetNodeName()
+func (p *PodInfo) getNode(ctx context.Context) (*corev1.Node, error) {
+	nodeName := p.getNodeName()
 	node := &corev1.Node{}
 	err := p.client.Get(
 		ctx,
@@ -80,9 +80,9 @@ func (p *PodInfo) GetNode(ctx context.Context) (*corev1.Node, error) {
 
 }
 
-func (p *PodInfo) GetNodeAddresses(ctx context.Context) ([]Address, error) {
+func (p *PodInfo) getNodeAddresses(ctx context.Context) ([]Address, error) {
 
-	node, err := p.GetNode(ctx)
+	node, err := p.getNode(ctx)
 	if err != nil {
 		return nil, nil
 	}
@@ -97,28 +97,26 @@ func (p *PodInfo) GetNodeAddresses(ctx context.Context) ([]Address, error) {
 		if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {
 			ip := net.ParseIP(address.Address)
 			if ip == nil {
-				return nil, fmt.Errorf("invalid node ip: %s from node %s", address.Address, p.GetNodeName())
+				return nil, fmt.Errorf("invalid node ip: %s from node %s", address.Address, p.getNodeName())
 			}
 			addresses = append(addresses, Address{IP: ip})
 		}
 	}
 
-	logger.V(5).Info("get node ip filter by internal and external", "pod", p.GetPodName(),
-		"namespace", p.GetPodNamespace(), "node", p.GetNodeName(), "addresses", addresses,
+	logger.V(5).Info("get node ip filter by internal and external", "pod", p.getPodName(),
+		"namespace", p.getPodNamespace(), "node", p.getNodeName(), "addresses", addresses,
 	)
 
 	return addresses, nil
 }
 
 // TODO: Dynamic get cluster domain, currently hard code to cluster.local
-func (p *PodInfo) GetFQDN(subdomain string) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local", subdomain, p.GetPodNamespace())
+func (p *PodInfo) getFQDN(subdomain string) string {
+	return fmt.Sprintf("%s.%s.svc.cluster.local", subdomain, p.getPodNamespace())
 }
 
-func (p *PodInfo) GetFQDNAddress(subdomain string) Address {
-	return Address{
-		Hostname: p.GetFQDN(subdomain),
-	}
+func (p *PodInfo) getFQDNAddress(subdomain string) Address {
+	return Address{Hostname: p.getFQDN(subdomain)}
 }
 
 // Get the address information of the pod.
@@ -132,23 +130,23 @@ func (p *PodInfo) GetPodAddresses() ([]Address, error) {
 		// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pods
 		addresses = append(
 			addresses,
-			p.GetFQDNAddress(svcName),
-			p.GetFQDNAddress(fmt.Sprintf("%s.%s", p.GetPodName(), svcName)),
+			p.getFQDNAddress(svcName),
+			p.getFQDNAddress(fmt.Sprintf("%s.%s", p.getPodName(), svcName)),
 		)
 	}
 
-	for _, ipStr := range p.GetPodIPs() {
+	for _, ipStr := range p.getPodIPs() {
 		ip := net.ParseIP(ipStr)
 
 		if ip == nil {
-			return nil, fmt.Errorf("invalid pod ip: %s from pod %s", ipStr, p.GetPodName())
+			return nil, fmt.Errorf("invalid pod ip: %s from pod %s", ipStr, p.getPodName())
 		}
 		addresses = append(addresses, Address{
 			IP: ip,
 		})
 	}
 
-	logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+	logger.V(1).Info("get pod addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 		"addresses", addresses)
 
 	return addresses, nil
@@ -158,16 +156,16 @@ func (p *PodInfo) GetPodAddresses() ([]Address, error) {
 func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	addresses := make([]Address, 0)
 
-	scoped := p.VolumeSelector.Scope
+	scoped := p.Scope
 
 	if scoped.Node == volume.ScopeNode {
-		nodeAddresses, err := p.GetNodeAddresses(ctx)
+		nodeAddresses, err := p.getNodeAddresses(ctx)
 		if err != nil {
 			return nil, err
 		}
 		addresses = append(addresses, nodeAddresses...)
-		logger.V(1).Info("get node addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
-			"node", p.GetNodeName(), "addresses", nodeAddresses)
+		logger.V(1).Info("get node addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+			"node", p.getNodeName(), "addresses", nodeAddresses)
 	}
 
 	if scoped.Pod == volume.ScopePod {
@@ -176,31 +174,31 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 			return nil, err
 		}
 		addresses = append(addresses, podAddresses...)
-		logger.V(1).Info("get pod addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+		logger.V(1).Info("get scope pod addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 			"addresses", podAddresses)
 	}
 
 	if scoped.Services != nil {
 		svcAddresses := []Address{}
 		for _, svcName := range scoped.Services {
-			svcAddresses = append(svcAddresses, p.GetFQDNAddress(svcName))
+			svcAddresses = append(svcAddresses, p.getFQDNAddress(svcName))
 		}
 		addresses = append(addresses, svcAddresses...)
-		logger.V(1).Info("get service addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+		logger.V(1).Info("get service addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 			"services", scoped.Services, "addresses", svcAddresses)
 	}
 
 	if scoped.ListenerVolumes != nil {
-		listenerAddresses, err := p.GetListenerAddresses(ctx)
+		listenerAddresses, err := p.getListenerAddresses(ctx)
 		if err != nil {
 			return nil, err
 		}
 		addresses = append(addresses, listenerAddresses...)
-		logger.V(1).Info("get listener addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+		logger.V(1).Info("get listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 			"addresses", listenerAddresses)
 	}
 
-	logger.V(1).Info("get scoped addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+	logger.V(1).Info("get scoped addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 		"scope", scoped, "addresses", addresses)
 
 	return addresses, nil
@@ -217,39 +215,37 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 //
 // If there is a listener volume in the pod volumes, but the PVC corresponding to the listener volume
 // does not have a listener name annotation, then return empty.
-func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
+func (p *PodInfo) getListenerNames(ctx context.Context) ([]string, error) {
 	volumeAndPvcNames := make(map[string]string) // pod volume name -> pvc name
 
 	for _, volume := range p.Pod.Spec.Volumes {
 		if volume.Ephemeral != nil {
 			// If the volume is an ephemeral volume, then the volume name is pod name + volume name
-			pvcName := fmt.Sprintf("%s-%s", p.GetPodName(), volume.Name)
-			logger.V(1).Info("found ephemeral volume in pod", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
-				"volume", volume.Name, "pvc", pvcName)
+			pvcName := fmt.Sprintf("%s-%s", p.getPodName(), volume.Name)
+			logger.V(1).Info("found ephemeral volume in pod", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "volume", volume.Name, "pvc", pvcName)
 			volumeAndPvcNames[volume.Name] = pvcName
 		} else if volume.PersistentVolumeClaim != nil {
 			// When the workloads are statefulset, the name is automatically generated by statefulset through pvcTemplate
 			// We can directly get the name of the pvc here
 			pvcName := volume.PersistentVolumeClaim.ClaimName
-			logger.V(1).Info("found pvc volume in pod", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
-				"volume", pvcName)
+			logger.V(1).Info("found pvc volume in pod", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "volume", pvcName)
 			volumeAndPvcNames[volume.Name] = pvcName
 		}
 	}
 
 	if len(volumeAndPvcNames) == 0 {
 		logger.V(1).Info("can not find any volume in pod, support volume type: PersistentVolumeClaim and ephemeral",
-			"pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "podVolumes", p.Pod.Spec.Volumes,
+			"pod", p.getPodName(), "namespace", p.getPodNamespace(), "podVolumes", p.Pod.Spec.Volumes,
 		)
 		return nil, nil
 	}
 
 	listenerNames := make([]string, 0)
-	for _, listenerVolume := range p.VolumeSelector.Scope.ListenerVolumes {
+	for _, listenerVolume := range p.Scope.ListenerVolumes {
 		listenerPVCName, found := volumeAndPvcNames[listenerVolume]
 		if !found {
-			logger.V(1).Info("can not find listener volume in pod volumes", "pod", p.GetPodName(),
-				"namespace", p.GetPodNamespace(), "listenerVolume", listenerVolume,
+			logger.V(1).Info("can not find listener volume in pod volumes", "pod", p.getPodName(),
+				"namespace", p.getPodNamespace(), "listenerVolume", listenerVolume,
 			)
 			continue
 		}
@@ -261,8 +257,8 @@ func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
 
 		listenerName, found := pvc.Annotations[constants.AnnotationListenerName]
 		if !found {
-			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.GetPodName(),
-				"namespace", p.GetPodNamespace(), "listenerVolume", listenerVolume, "listenerPVC", listenerPVCName,
+			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.getPodName(),
+				"namespace", p.getPodNamespace(), "listenerVolume", listenerVolume, "listenerPVC", listenerPVCName,
 			)
 			continue
 		}
@@ -271,13 +267,13 @@ func (p *PodInfo) GetListenerNames(ctx context.Context) ([]string, error) {
 
 	if listenerNames == nil {
 		logger.V(1).Info("can not find any listener name, because all listener volumes not in pod volumes",
-			"pod", p.GetPodName(), "namespace", p.GetPodNamespace(), "listenerVolumes", p.VolumeSelector.Scope.ListenerVolumes,
+			"pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolumes", p.Scope.ListenerVolumes,
 			"podVolumes", p.Pod.Spec.Volumes,
 		)
 		return nil, nil
 	}
 
-	logger.V(1).Info("get listener names", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+	logger.V(1).Info("get listener names", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 		"listenerNames", listenerNames)
 
 	return listenerNames, nil
@@ -289,7 +285,7 @@ func (p *PodInfo) getPVC(ctx context.Context, name string) (*corev1.PersistentVo
 		ctx,
 		client.ObjectKey{
 			Name:      name,
-			Namespace: p.GetPodNamespace(),
+			Namespace: p.getPodNamespace(),
 		},
 		pvc,
 	)
@@ -301,9 +297,9 @@ func (p *PodInfo) getPVC(ctx context.Context, name string) (*corev1.PersistentVo
 }
 
 // Get listener addresses, listener address might be empty.
-func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
+func (p *PodInfo) getListenerAddresses(ctx context.Context) ([]Address, error) {
 	// get listener names from listener volumes, where listener volume is in the scope of the pod
-	listenerNames, err := p.GetListenerNames(ctx)
+	listenerNames, err := p.getListenerNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +314,7 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 	var addresses []Address
 
 	for _, listenerName := range listenerNames {
-		listener, err := p.GetListener(ctx, listenerName)
+		listener, err := p.getListener(ctx, listenerName)
 		if err != nil {
 			return nil, err
 		}
@@ -327,7 +323,7 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 				addresses = append(addresses, Address{
 					Hostname: ingressAddress.Address,
 				})
-				logger.V(1).Info("get listener address", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+				logger.V(1).Info("get listener address", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 					"listenerName", listenerName, "address", ingressAddress.Address)
 			} else if ingressAddress.AddressType == operatorlistenersv1alpha1.AddressTypeIP {
 				ip := net.ParseIP(ingressAddress.Address)
@@ -337,22 +333,22 @@ func (p *PodInfo) GetListenerAddresses(ctx context.Context) ([]Address, error) {
 				addresses = append(addresses, Address{
 					IP: ip,
 				})
-				logger.V(1).Info("get listener address", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+				logger.V(1).Info("get listener address", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 					"listenerName", listenerName, "address", ingressAddress.Address)
 			}
 		}
 	}
 
-	logger.V(1).Info("get listener addresses", "pod", p.GetPodName(), "namespace", p.GetPodNamespace(),
+	logger.V(1).Info("get listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 		"addresses", addresses)
 
 	return addresses, nil
 }
 
-func (p *PodInfo) GetListener(ctx context.Context, name string) (*operatorlistenersv1alpha1.Listener, error) {
+func (p *PodInfo) getListener(ctx context.Context, name string) (*operatorlistenersv1alpha1.Listener, error) {
 	listener := &operatorlistenersv1alpha1.Listener{}
 
-	err := p.client.Get(ctx, client.ObjectKey{Name: name, Namespace: p.GetPodNamespace()}, listener)
+	err := p.client.Get(ctx, client.ObjectKey{Name: name, Namespace: p.getPodNamespace()}, listener)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +359,7 @@ func (p *PodInfo) GetListener(ctx context.Context, name string) (*operatorlisten
 // TODO: in k8sSearch impl, we need to check if the listener is node scope to determine whether to
 // search with node scope label
 func (p *PodInfo) CheckNodeScope(ctx context.Context, listenerVolume string) (bool, error) {
-	scope := p.VolumeSelector.Scope.Node
+	scope := p.Scope.Node
 	if scope == volume.ScopeNode {
 		return true, nil
 	}
@@ -395,19 +391,19 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerVolume s
 	// if listener class name not found, get it from listener spec
 	listenerClassName, found := pvc.Annotations[constants.AnnotationListenersClass]
 	if !found {
-		logger.V(1).Info("can not find listener class in listener pvc annotations", "pod", p.GetPodName(), "namespace",
-			p.GetPodNamespace(), "listenerVolume", listenerVolume,
+		logger.V(1).Info("can not find listener class in listener pvc annotations", "pod", p.getPodName(), "namespace",
+			p.getPodNamespace(), "listenerVolume", listenerVolume,
 		)
 
 		listenerName, found := pvc.Annotations[constants.AnnotationListenerName]
 		if !found {
-			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.GetPodName(),
-				"namespace", p.GetPodNamespace(), "listenerVolume", listenerVolume,
+			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.getPodName(),
+				"namespace", p.getPodNamespace(), "listenerVolume", listenerVolume,
 			)
 			return false, nil
 		}
 
-		listener, err := p.GetListener(ctx, listenerName)
+		listener, err := p.getListener(ctx, listenerName)
 		if err != nil {
 			return false, err
 		}
@@ -416,8 +412,8 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerVolume s
 	}
 
 	if listenerClassName == "" {
-		logger.V(1).Info("can not find listener class name in listener pvc annotations", "pod", p.GetPodName(), "namespace",
-			p.GetPodNamespace(), "listenerVolume", listenerVolume,
+		logger.V(1).Info("can not find listener class name in listener pvc annotations", "pod", p.getPodName(), "namespace",
+			p.getPodNamespace(), "listenerVolume", listenerVolume,
 		)
 	}
 
@@ -430,8 +426,8 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerVolume s
 		return true, nil
 	}
 
-	logger.V(1).Info("listener class service type is not node port", "pod", p.GetPodName(),
-		"namespace", p.GetPodNamespace(), "listenerVolume", listenerVolume, "listenerClass",
+	logger.V(1).Info("listener class service type is not node port", "pod", p.getPodName(),
+		"namespace", p.getPodNamespace(), "listenerVolume", listenerVolume, "listenerClass",
 		listenerClassName, "serviceType", listenerClass.Spec.ServiceType,
 	)
 	return false, nil

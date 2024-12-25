@@ -49,7 +49,7 @@ const (
 	AnnotationSecretsCertRestartBuffer string = "secrets.kubedoop.dev/" + "autoTlsCertRestartBuffer"
 )
 
-type SecretVolumeSelector struct {
+type SecretVolumeContext struct {
 	// Default values for volume context
 	Pod                    string `json:"csi.storage.k8s.io/pod.name"`
 	PodNamespace           string `json:"csi.storage.k8s.io/pod.namespace"`
@@ -89,7 +89,7 @@ type SecretScope struct {
 	ListenerVolumes []string `json:"listener-volume"`
 }
 
-func (v SecretVolumeSelector) ToMap() map[string]string {
+func (v SecretVolumeContext) ToMap() map[string]string {
 	out := make(map[string]string)
 	if v.Pod != "" {
 		out[CSIStoragePodName] = v.Pod
@@ -137,7 +137,7 @@ func (v SecretVolumeSelector) ToMap() map[string]string {
 	return out
 }
 
-func (v SecretVolumeSelector) encodeScope() string {
+func (v SecretVolumeContext) encodeScope() string {
 	var scopes []string
 	if v.Scope.Pod != "" && v.Scope.Pod == ScopePod {
 		scopes = append(scopes, string(v.Scope.Pod))
@@ -158,7 +158,7 @@ func (v SecretVolumeSelector) encodeScope() string {
 	return strings.Join(scopes, ",")
 }
 
-func (v SecretVolumeSelector) decodeScope(scopes string) SecretScope {
+func (v SecretVolumeContext) decodeScope(scopes string) SecretScope {
 	secretScope := SecretScope{}
 
 	for _, scope := range strings.Split(scopes, ",") {
@@ -179,8 +179,8 @@ func (v SecretVolumeSelector) decodeScope(scopes string) SecretScope {
 	return secretScope
 }
 
-func NewVolumeSelectorFromMap(parameters map[string]string) (*SecretVolumeSelector, error) {
-	v := &SecretVolumeSelector{}
+func NewvolumeContextFromMap(parameters map[string]string) (*SecretVolumeContext, error) {
+	v := &SecretVolumeContext{}
 	for key, value := range parameters {
 		switch key {
 		case CSIStoragePodName:

@@ -65,7 +65,7 @@ func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.Create
 	// - 'csi.storage.k8s.io/pvc/name'
 	// - 'csi.storage.k8s.io/pvc/namespace'
 	// ref: https://github.com/kubernetes-csi/external-provisioner?tab=readme-ov-file#command-line-options
-	volumeSelector, err := c.getVolumeContext(request.Parameters)
+	volumeContext, err := c.getVolumeContext(request.Parameters)
 
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Get secret Volume refer error: %v", err)
@@ -75,7 +75,7 @@ func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.Create
 		Volume: &csi.Volume{
 			VolumeId:      request.GetName(),
 			CapacityBytes: requiredCap,
-			VolumeContext: volumeSelector.ToMap(),
+			VolumeContext: volumeContext.ToMap(),
 		},
 	}, nil
 }
@@ -120,7 +120,7 @@ func (c *ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVol
 //     'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
 //   - get PVC by k8s client with PVC name and namespace, then get annotations from PVC.
 //   - get 'secrets.kubedoop.dev/class' and 'secrets.kubedoop.dev/scope' from PVC annotations.
-func (c *ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (*volume.SecretVolumeSelector, error) {
+func (c *ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (*volume.SecretVolumeContext, error) {
 	pvcName, pvcNameExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/name"]
 	pvcNamespace, pvcNamespaceExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/namespace"]
 
@@ -134,13 +134,13 @@ func (c *ControllerServer) getVolumeContext(createVolumeRequestParams map[string
 		return nil, status.Errorf(codes.NotFound, "PVC: %q, Namespace: %q. Detail: %v", pvcName, pvcNamespace, err)
 	}
 
-	volumeSelector, err := volume.NewVolumeSelectorFromMap(pvc.GetAnnotations())
+	volumeContext, err := volume.NewvolumeContextFromMap(pvc.GetAnnotations())
 
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Get secret Volume refer error: %v", err)
 	}
 
-	return volumeSelector, nil
+	return volumeContext, nil
 }
 
 func (c *ControllerServer) DeleteVolume(ctx context.Context, request *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
