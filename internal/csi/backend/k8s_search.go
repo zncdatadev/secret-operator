@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var _ IBackend = &K8sSearchBackend{}
+
 type K8sSearchBackend struct {
 	client          client.Client
 	podInfo         *pod_info.PodInfo
@@ -22,30 +24,25 @@ type K8sSearchBackend struct {
 	searchNamespace *secretsv1alpha1.SearchNamespaceSpec
 }
 
-func NewK8sSearchBackend(
-	client client.Client,
-	podInfo *pod_info.PodInfo,
-	volumeContext *volume.SecretVolumeContext,
-	k8sSearchSpec *secretsv1alpha1.K8sSearchSpec,
-) (*K8sSearchBackend, error) {
-
-	if k8sSearchSpec == nil {
+func NewK8sSearchBackend(config *BackendConfig) (IBackend, error) {
+	spec := config.SecretClass.Spec.Backend.K8sSearch
+	if spec == nil {
 		return nil, errors.New("k8sSearchSpec is nil in secret class")
 	}
 
-	if k8sSearchSpec.SearchNamespace == nil {
+	if spec.SearchNamespace == nil {
 		return nil, errors.New("searchNamespace is nil in secret class")
 	}
 
 	return &K8sSearchBackend{
-		client:          client,
-		podInfo:         podInfo,
-		volumeContext:   volumeContext,
-		searchNamespace: k8sSearchSpec.SearchNamespace,
+		client:          config.Client,
+		podInfo:         config.PodInfo,
+		volumeContext:   config.VolumeContext,
+		searchNamespace: spec.SearchNamespace,
 	}, nil
 }
 
-func (k *K8sSearchBackend) GetPod() *corev1.Pod {
+func (k *K8sSearchBackend) getPod() *corev1.Pod {
 	return k.podInfo.Pod
 }
 
@@ -55,7 +52,7 @@ func (k *K8sSearchBackend) namespace() (*string, error) {
 	}
 
 	if k.searchNamespace.Pod != nil {
-		ns := k.GetPod().GetNamespace()
+		ns := k.getPod().GetNamespace()
 		return &ns, nil
 	}
 
@@ -103,7 +100,7 @@ func (k *K8sSearchBackend) matchingLabels() map[string]string {
 	}
 
 	scope := k.volumeContext.Scope
-	pod := k.GetPod()
+	pod := k.getPod()
 
 	if scope.Pod != "" {
 		labels[constants.LabelSecretsPod] = pod.GetName()
@@ -118,6 +115,10 @@ func (k *K8sSearchBackend) matchingLabels() map[string]string {
 	}
 
 	return labels
+}
+
+func (k *K8sSearchBackend) GetQualifiedNodeNames(ctx context.Context) ([]string, error) {
+	panic("implement me")
 }
 
 // GetSecretData implements Backend.

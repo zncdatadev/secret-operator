@@ -105,7 +105,10 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	podInfo := pod_info.NewPodInfo(n.client, pod, &volumeContext.Scope)
 
 	// get the secret data
-	backend := secretbackend.NewBackend(n.client, podInfo, volumeContext, secretClass)
+	backend, err := secretbackend.NewBackend(ctx, n.client, podInfo, volumeContext)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	secretContent, err := backend.GetSecretData(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

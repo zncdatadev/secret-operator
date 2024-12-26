@@ -57,7 +57,7 @@ func TestSecretVolumeContextToMap(t *testing.T) {
 				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
 				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
-				AnnotationSecretsCertRestartBuffer:              "5m0s",
+				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
 		},
 		{
@@ -113,7 +113,7 @@ func TestNewvolumeContextFromMap(t *testing.T) {
 				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
 				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
-				AnnotationSecretsCertRestartBuffer:              "5m0s",
+				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
 			expected: &SecretVolumeContext{
 				Pod:                "my-pod",

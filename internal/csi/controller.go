@@ -3,14 +3,22 @@ package csi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/zncdatadev/operator-go/pkg/constants"
+	"github.com/zncdatadev/secret-operator/internal/csi/backend"
+	"github.com/zncdatadev/secret-operator/pkg/pod_info"
 	"github.com/zncdatadev/secret-operator/pkg/volume"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	KubedoopTOPOLOGY = "secrets.kubedoop.dev/node"
 )
 
 var (
@@ -53,93 +61,111 @@ func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.Create
 	}
 
 	c.volumes[request.Name] = requiredCap
-
 	if request.Parameters["secretFinalizer"] == "true" {
 		logger.V(1).Info("Finalizer is true")
 	}
 
 	// requests.parameters is StorageClass.Parameters, which is set by user when creating PVC.
 	// When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container,
-	// we also can get:
+	// we can get the following parameters from requests.parameters:
 	// - 'csi.storage.k8s.io/pv/name'
 	// - 'csi.storage.k8s.io/pvc/name'
 	// - 'csi.storage.k8s.io/pvc/namespace'
 	// ref: https://github.com/kubernetes-csi/external-provisioner?tab=readme-ov-file#command-line-options
-	volumeContext, err := c.getVolumeContext(request.Parameters)
-
+	pvcObjectKey, err := c.getPVCObjectKey(request.Parameters)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Get secret Volume refer error: %v", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	pvc, err := c.getPVC(ctx, pvcObjectKey)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	volumeContext, err := c.getVolumeContext(pvc)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	// get accessible topology
+	accessibleTopology, err := c.getAssibleTopology(ctx, pvc)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
-			VolumeId:      request.GetName(),
-			CapacityBytes: requiredCap,
-			VolumeContext: volumeContext.ToMap(),
+			VolumeId:           request.GetName(),
+			CapacityBytes:      requiredCap,
+			VolumeContext:      volumeContext,
+			AccessibleTopology: accessibleTopology,
 		},
 	}, nil
 }
 
-func validateCreateVolumeRequest(request *csi.CreateVolumeRequest) error {
-	if request.GetName() == "" {
-		return errors.New("volume Name is required")
-	}
-
-	if request.GetCapacityRange() == nil {
-		return errors.New("capacityRange is required")
-	}
-
-	if request.GetVolumeCapabilities() == nil {
-		return errors.New("volumeCapabilities is required")
-	}
-
-	if !isValidVolumeCapabilities(request.GetVolumeCapabilities()) {
-		return errors.New("volumeCapabilities is not supported")
-	}
-
-	return nil
-}
-
-func (c *ControllerServer) getPvc(name, namespace string) (*corev1.PersistentVolumeClaim, error) {
-	pvc := &corev1.PersistentVolumeClaim{}
-	err := c.client.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, pvc)
+func (c *ControllerServer) getAssibleTopology(ctx context.Context, pvc *corev1.PersistentVolumeClaim) ([]*csi.Topology, error) {
+	volumeContext, err := volume.NewvolumeContextFromMap(pvc.Annotations)
 	if err != nil {
 		return nil, err
 	}
 
+	pod := &corev1.Pod{}
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.OwnerReferences[0].Name}, pod); err != nil {
+		return nil, err
+	}
+
+	podInto := pod_info.NewPodInfo(c.client, pod, &volumeContext.Scope)
+
+	backend, err := backend.NewBackend(ctx, c.client, podInto, volumeContext)
+
+	nodeNames, err := backend.GetQualifiedNodeNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(nodeNames) == 0 {
+		return nil, nil
+	}
+
+	topology := make([]*csi.Topology, 0, len(nodeNames))
+	for _, nodeName := range nodeNames {
+		topology = append(topology, &csi.Topology{
+			Segments: map[string]string{
+				KubedoopTOPOLOGY: nodeName,
+			},
+		})
+	}
+	return nil, nil
+
+}
+
+func (c *ControllerServer) getPVC(ctx context.Context, objectKey client.ObjectKey) (*corev1.PersistentVolumeClaim, error) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := c.client.Get(ctx, objectKey, pvc); err != nil {
+		return nil, err
+	}
 	return pvc, nil
 }
 
-// getVolumeContext gets volume ctx from PVC annotations
-//   - get PVC name and namespace from createVolumeRequestParams. createVolumeRequestParams is a map of parameters from CreateVolumeRequest,
-//     it is StorageClass.Parameters, which is set by user when creating PVC.
-//     When adding '--extra-create-metadata' args in sidecar of registry.k8s.io/sig-storage/csi-provisioner container, we can get
-//     'csi.storage.k8s.io/pvc/name' and 'csi.storage.k8s.io/pvc/namespace' from params.
-//   - get PVC by k8s client with PVC name and namespace, then get annotations from PVC.
-//   - get 'secrets.kubedoop.dev/class' and 'secrets.kubedoop.dev/scope' from PVC annotations.
-func (c *ControllerServer) getVolumeContext(createVolumeRequestParams map[string]string) (*volume.SecretVolumeContext, error) {
-	pvcName, pvcNameExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/name"]
-	pvcNamespace, pvcNamespaceExists := createVolumeRequestParams["csi.storage.k8s.io/pvc/namespace"]
+func (c *ControllerServer) getPVCObjectKey(requestParams map[string]string) (client.ObjectKey, error) {
+	pvcName, pvcNameExists := requestParams["csi.storage.k8s.io/pvc/name"]
+	pvcNamespace, pvcNamespaceExists := requestParams["csi.storage.k8s.io/pvc/namespace"]
 
-	if !pvcNameExists || !pvcNamespaceExists {
-		return nil, status.Error(codes.InvalidArgument, "ensure '--extra-create-metadata' args are added in the sidecar of the csi-provisioner container.")
+	if pvcNameExists && pvcNamespaceExists {
+		return client.ObjectKey{
+			Namespace: pvcNamespace,
+			Name:      pvcName,
+		}, nil
 	}
 
-	pvc, err := c.getPvc(pvcName, pvcNamespace)
-	if err != nil {
+	return client.ObjectKey{}, fmt.Errorf("ensure '--extra-create-metadata' args are added in the sidecar of the csi-provisioner container.")
+}
 
-		return nil, status.Errorf(codes.NotFound, "PVC: %q, Namespace: %q. Detail: %v", pvcName, pvcNamespace, err)
+func (c *ControllerServer) getVolumeContext(pvc *corev1.PersistentVolumeClaim) (map[string]string, error) {
+	volumeContext := pvc.Annotations
+	if _, ok := volumeContext[constants.AnnotationSecretsClass]; ok {
+		return nil, fmt.Errorf("required annotations %s, not found in pvc %s, namespace %s", constants.AnnotationSecretsClass, pvc.Name, pvc.Namespace)
 	}
-
-	volumeContext, err := volume.NewvolumeContextFromMap(pvc.GetAnnotations())
-
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Get secret Volume refer error: %v", err)
-	}
-
 	return volumeContext, nil
 }
 
@@ -269,4 +295,24 @@ func isSupportVolumeCapabilities(cap *csi.VolumeCapability) bool {
 
 func CheckDynamicPV(name string) (bool, error) {
 	return regexp.Match("pvc-\\w{8}(-\\w{4}){3}-\\w{12}", []byte(name))
+}
+
+func validateCreateVolumeRequest(request *csi.CreateVolumeRequest) error {
+	if request.GetName() == "" {
+		return errors.New("volume Name is required")
+	}
+
+	if request.GetCapacityRange() == nil {
+		return errors.New("capacityRange is required")
+	}
+
+	if request.GetVolumeCapabilities() == nil {
+		return errors.New("volumeCapabilities is required")
+	}
+
+	if !isValidVolumeCapabilities(request.GetVolumeCapabilities()) {
+		return errors.New("volumeCapabilities is not supported")
+	}
+
+	return nil
 }

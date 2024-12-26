@@ -34,19 +34,8 @@ const (
 	CSIStorageEphemeral                     string = "csi.storage.k8s.io/ephemeral"
 	StorageKubernetesCSIProvisionerIdentity string = "storage.kubernetes.io/csiProvisionerIdentity"
 	VolumeKubernetesStorageProvisioner      string = "volume.kubernetes.io/storage-provisioner"
-	// https://kubernetes.io/docs/reference/labels-annotations-taints/
-	// #volume-beta-kubernetes-io-storage-provisioner-deprecated
+	// https://kubernetes.io/docs/reference/labels-annotations-taints/#volume-beta-kubernetes-io-storage-provisioner-deprecated
 	DeprecatedVolumeKubernetesStorageProvisioner string = "volume.beta.kubernetes.io/storage-provisioner"
-)
-
-// TODO: move to operator-go constants
-const (
-	// When a large number of Pods restart at a similar time,
-	// because the pod restart time is uncertain, the restart process may be relatively long,
-	// even if there is a time limit for elegant shutdown, there will still be a case of pod late restart
-	// resulting in certificate expiration.
-	// To avoid this, the pod expiration time is checked before this buffer time.
-	AnnotationSecretsCertRestartBuffer string = "secrets.kubedoop.dev/" + "autoTlsCertRestartBuffer"
 )
 
 type SecretVolumeContext struct {
@@ -132,7 +121,7 @@ func (v SecretVolumeContext) ToMap() map[string]string {
 		out[constants.AnnotationSecretsCertJitterFactor] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
 	}
 	if v.AutoTlsCertRestartBuffer != 0 {
-		out[AnnotationSecretsCertRestartBuffer] = v.AutoTlsCertRestartBuffer.String()
+		out[constants.AnnotationSecretsCertRestartBuffer] = v.AutoTlsCertRestartBuffer.String()
 	}
 	return out
 }
@@ -227,7 +216,7 @@ func NewvolumeContextFromMap(parameters map[string]string) (*SecretVolumeContext
 				return nil, fmt.Errorf("failed to parse jitter factor: %s", value)
 			}
 
-		case AnnotationSecretsCertRestartBuffer:
+		case constants.AnnotationSecretsCertRestartBuffer:
 			d, err := time.ParseDuration(value)
 			if err != nil {
 				return nil, err
