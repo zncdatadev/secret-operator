@@ -47,10 +47,6 @@ func (p *PodInfo) getPodNamespace() string {
 	return p.Pod.GetNamespace()
 }
 
-func (p *PodInfo) getPodIP() string {
-	return p.Pod.Status.PodIP
-}
-
 // Get the pod's IP address
 // k8s assign ips for pod when pvc is successfully bound,
 // so it is empty when pvc is not bound
@@ -80,7 +76,8 @@ func (p *PodInfo) getNodeAddresses(ctx context.Context) ([]Address, error) {
 		}
 	}
 
-	logger.V(1).Info("get node ip filter by internal and external", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "addresses", addresses)
+	logger.V(1).Info("get node ip filter by internal and external", "pod", p.getPodName(),
+		"namespace", p.getPodNamespace(), "addresses", addresses)
 	return addresses, nil
 }
 
@@ -127,7 +124,8 @@ func (p *PodInfo) getServiceAddresses(serviceNames []string) []Address {
 	for _, svcName := range serviceNames {
 		addresses = append(addresses, p.getFQDNAddress(svcName))
 	}
-	logger.V(1).Info("get service addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "services", serviceNames, "addresses", addresses)
+	logger.V(1).Info("get service addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+		"services", serviceNames, "addresses", addresses)
 	return addresses
 }
 
@@ -166,7 +164,8 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 		addresses = append(addresses, listenerAddresses...)
 	}
 
-	logger.V(1).Info("get scoped addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "scope", scoped, "addresses", addresses)
+	logger.V(1).Info("get scoped addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+		"scope", scoped, "addresses", addresses)
 	return addresses, nil
 }
 
@@ -346,16 +345,15 @@ func (p *PodInfo) getListenerAddresses(ctx context.Context) ([]Address, error) {
 				if ip == nil {
 					return nil, fmt.Errorf("invalid listener ip: %s from listener %s", ingressAddress.Address, listenerName)
 				}
-				addresses = append(addresses, Address{
-					IP: ip,
-				})
+				addresses = append(addresses, Address{IP: ip})
 				logger.V(1).Info("get listener address", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 					"listenerName", listenerName, "address", ingressAddress.Address)
 			}
 		}
 	}
 
-	logger.V(1).Info("get listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "addresses", addresses)
+	logger.V(1).Info("get listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+		"addresses", addresses)
 	return addresses, nil
 }
 
@@ -384,10 +382,12 @@ func (p *PodInfo) HasListenerNodeScope(ctx context.Context) (bool, error) {
 
 	for _, listenerName := range listenerVolumesToListenerName {
 		if hasNodeScope, err := p.checkNodeScopeByListener(ctx, listenerName); err != nil {
-			logger.V(1).Info("listener volume is not node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolume", listenerName)
+			logger.V(1).Info("listener volume is not node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+				"listenerVolume", listenerName)
 			return false, err
 		} else if hasNodeScope {
-			logger.V(1).Info("listener volume is node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolume", listenerName)
+			logger.V(1).Info("listener volume is node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+				"listenerVolume", listenerName)
 			return true, nil
 		}
 	}
@@ -406,8 +406,8 @@ func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerName str
 		return false, err
 	}
 
-	logger.V(1).Info("check listener class service type", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerName", listenerName,
-		"listenerClass", listenerClass.Name, "serviceType", *listenerClass.Spec.ServiceType)
+	logger.V(1).Info("check listener class service type", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
+		"listenerName", listenerName, "listenerClass", listenerClass.Name, "serviceType", *listenerClass.Spec.ServiceType)
 	return *listenerClass.Spec.ServiceType == corev1.ServiceTypeNodePort, nil
 }
 

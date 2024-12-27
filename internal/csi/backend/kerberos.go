@@ -41,7 +41,8 @@ func (k *KerberosBackend) getKrb5Config() *kerberos.Krb5Config {
 }
 
 func (k *KerberosBackend) GetQualifiedNodeNames(ctx context.Context) ([]string, error) {
-	panic("implement me")
+	// Default to the node name if no node selector is specified
+	return nil, nil
 }
 
 // GetSecretData implements Backend.

@@ -117,6 +117,9 @@ func (c *ControllerServer) getAssibleTopology(ctx context.Context, pvc *corev1.P
 	podInto := pod_info.NewPodInfo(c.client, pod, &volumeContext.Scope)
 
 	backend, err := backend.NewBackend(ctx, c.client, podInto, volumeContext)
+	if err != nil {
+		return nil, err
+	}
 
 	nodeNames, err := backend.GetQualifiedNodeNames(ctx)
 	if err != nil {
@@ -135,7 +138,7 @@ func (c *ControllerServer) getAssibleTopology(ctx context.Context, pvc *corev1.P
 			},
 		})
 	}
-	return nil, nil
+	return topology, nil
 
 }
 
@@ -158,12 +161,12 @@ func (c *ControllerServer) getPVCObjectKey(requestParams map[string]string) (cli
 		}, nil
 	}
 
-	return client.ObjectKey{}, fmt.Errorf("ensure '--extra-create-metadata' args are added in the sidecar of the csi-provisioner container.")
+	return client.ObjectKey{}, fmt.Errorf("ensure '--extra-create-metadata' args are added in the sidecar of the csi-provisioner container")
 }
 
 func (c *ControllerServer) getVolumeContext(pvc *corev1.PersistentVolumeClaim) (map[string]string, error) {
-	volumeContext := pvc.Annotations
-	if _, ok := volumeContext[constants.AnnotationSecretsClass]; ok {
+	volumeContext := pvc.GetAnnotations()
+	if _, ok := volumeContext[constants.AnnotationSecretsClass]; !ok {
 		return nil, fmt.Errorf("required annotations %s, not found in pvc %s, namespace %s", constants.AnnotationSecretsClass, pvc.Name, pvc.Namespace)
 	}
 	return volumeContext, nil

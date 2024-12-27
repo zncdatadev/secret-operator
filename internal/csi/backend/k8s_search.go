@@ -175,6 +175,9 @@ func (k *K8sSearchBackend) GetSecretData(ctx context.Context) (*util.SecretConte
 	}
 
 	matchingLabels, err := k.matchingLabels(ctx, hasListenerNodeScope)
+	if err != nil {
+		return nil, err
+	}
 
 	objs, err := k.getSecretList(ctx, matchingLabels)
 	if err != nil {

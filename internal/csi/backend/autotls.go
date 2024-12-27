@@ -198,10 +198,7 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 
 	notAfter := time.Now().Add(certLife)
 
-	cert, err := certificateAuthority.SignServerCertificate(
-		addresses,
-		notAfter,
-	)
+	cert, err := certificateAuthority.SignServerCertificate(addresses, notAfter)
 
 	if err != nil {
 		return nil, err

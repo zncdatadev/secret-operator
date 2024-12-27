@@ -34,6 +34,7 @@ const (
 	CSIStorageEphemeral                     string = "csi.storage.k8s.io/ephemeral"
 	StorageKubernetesCSIProvisionerIdentity string = "storage.kubernetes.io/csiProvisionerIdentity"
 	VolumeKubernetesStorageProvisioner      string = "volume.kubernetes.io/storage-provisioner"
+	// nolint:lll
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#volume-beta-kubernetes-io-storage-provisioner-deprecated
 	DeprecatedVolumeKubernetesStorageProvisioner string = "volume.beta.kubernetes.io/storage-provisioner"
 )
