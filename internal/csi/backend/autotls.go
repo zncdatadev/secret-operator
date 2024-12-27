@@ -176,7 +176,8 @@ func (a *AutoTlsBackend) certificateConvert(cert *ca.Certificate) (map[string]st
 }
 
 func (k *AutoTlsBackend) GetQualifiedNodeNames(ctx context.Context) ([]string, error) {
-	panic("implement me")
+	// Default implementation, return nil
+	return nil, nil
 }
 
 func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent, error) {

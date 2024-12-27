@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 
 	operatorlistenersv1alpha1 "github.com/zncdatadev/operator-go/pkg/apis/listeners/v1alpha1"
 	"github.com/zncdatadev/operator-go/pkg/constants"
@@ -21,6 +22,9 @@ type PodInfo struct {
 	client client.Client
 	Pod    *corev1.Pod
 	Scope  *volume.SecretScope
+
+	listenerVolumesToListenerCache map[string]string
+	mut                            sync.RWMutex
 }
 
 func NewPodInfo(
@@ -166,7 +170,38 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	return addresses, nil
 }
 
-func (p *PodInfo) getListenerNames(ctx context.Context) ([]string, error) {
+// Get listener volume names to listener name mapping
+// Use cache to avoid multiple calls to the API server
+func (p *PodInfo) GetListenerVolumeNamesToListenerName(ctx context.Context) (map[string]string, error) {
+	// try read cache
+	p.mut.RLock()
+	if p.listenerVolumesToListenerCache != nil {
+		defer p.mut.RUnlock()
+		return p.listenerVolumesToListenerCache, nil
+	}
+	p.mut.RUnlock()
+
+	// cache miss, relock and write cache
+	p.mut.Lock()
+	defer p.mut.Unlock()
+
+	// check again in case
+	if p.listenerVolumesToListenerCache != nil {
+		return p.listenerVolumesToListenerCache, nil
+	}
+
+	// fetch listener volume names to listener name
+	listenerVolumesToListenerName, err := p.fetchListenerVolumeNamesToListenerName(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// update cache
+	p.listenerVolumesToListenerCache = listenerVolumesToListenerName
+	return listenerVolumesToListenerName, nil
+}
+
+func (p *PodInfo) fetchListenerVolumeNamesToListenerName(ctx context.Context) (map[string]string, error) {
 	listenerVolumeNameToPvcName := p.getListenerVolumesToPVCNameMapping()
 	if len(listenerVolumeNameToPvcName) == 0 {
 		logger.V(1).Info("no valid listener volumes found in pod",
@@ -176,7 +211,7 @@ func (p *PodInfo) getListenerNames(ctx context.Context) ([]string, error) {
 		return nil, nil
 	}
 
-	listenerNames := make([]string, 0)
+	listenerVolumesToListenerName := make(map[string]string)
 	for listenerVolumeName, pvcName := range listenerVolumeNameToPvcName {
 		pvc, err := p.getPVC(ctx, pvcName)
 		if err != nil {
@@ -188,16 +223,16 @@ func (p *PodInfo) getListenerNames(ctx context.Context) ([]string, error) {
 				"listenerName", listenerName,
 				"pvc", pvcName,
 				"namespace", pvc.Namespace)
-			listenerNames = append(listenerNames, listenerName)
+			listenerVolumesToListenerName[listenerVolumeName] = listenerName
 		} else {
 			logger.V(5).Info("using PVC name as listener name",
 				"pvc", pvcName,
 				"namespace", pvc.Namespace)
-			listenerNames = append(listenerNames, listenerVolumeName)
+			listenerVolumesToListenerName[listenerVolumeName] = pvcName
 		}
 	}
 
-	if len(listenerNames) == 0 {
+	if len(listenerVolumesToListenerName) == 0 {
 		logger.V(1).Info("no listener names found",
 			"pod", p.getPodName(),
 			"namespace", p.getPodNamespace(),
@@ -205,8 +240,9 @@ func (p *PodInfo) getListenerNames(ctx context.Context) ([]string, error) {
 		return nil, nil
 	}
 
-	logger.V(1).Info("found listener names", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerNames", listenerNames)
-	return listenerNames, nil
+	logger.V(1).Info("found listener names", "pod", p.getPodName(),
+		"namespace", p.getPodNamespace(), "listenerVolumeToListenerName", listenerVolumesToListenerName)
+	return listenerVolumesToListenerName, nil
 }
 
 // getListenerVolumesToPVCMapping returns a map of listener volume name to PVC name
@@ -280,20 +316,20 @@ func (p *PodInfo) getPVC(ctx context.Context, name string) (*corev1.PersistentVo
 // Get listener addresses, listener address might be empty.
 func (p *PodInfo) getListenerAddresses(ctx context.Context) ([]Address, error) {
 	// get listener names from listener volumes, where listener volume is in the scope of the pod
-	listenerNames, err := p.getListenerNames(ctx)
+	listenerVolumesToListenerName, err := p.GetListenerVolumeNamesToListenerName(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// If listener name is empty, then return empty
 	// This situation should be considered normal, because the listener function is optional.
-	if len(listenerNames) == 0 {
+	if len(listenerVolumesToListenerName) == 0 {
 		logger.V(1).Info("can not find any listener name, this may be normal, because the listener function is optional")
 		return nil, nil
 	}
 
 	addresses := make([]Address, 0)
-	for _, listenerName := range listenerNames {
+	for _, listenerName := range listenerVolumesToListenerName {
 		listener, err := p.getListener(ctx, listenerName)
 		if err != nil {
 			return nil, err
@@ -334,67 +370,44 @@ func (p *PodInfo) getListener(ctx context.Context, name string) (*operatorlisten
 	return listener, nil
 }
 
-// Check secret scoped with listenerVolume has node scope.
-func (p *PodInfo) HasNodeScope(ctx context.Context) (bool, error) {
-	listenerVolumes := p.getListenerVolumesToPVCNameMapping()
-	if len(listenerVolumes) == 0 {
+// Check secret listener volume scope has node scope
+func (p *PodInfo) HasListenerNodeScope(ctx context.Context) (bool, error) {
+	listenerVolumesToListenerName, err := p.GetListenerVolumeNamesToListenerName(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	if len(listenerVolumesToListenerName) == 0 {
 		logger.V(1).Info("no listener volumes found in pod", "pod", p.getPodName(), "namespace", p.getPodNamespace())
 		return false, nil
 	}
 
-	for listenerVolume, pvcName := range listenerVolumes {
-		if hasNodeScope, err := p.checkNodeScopeByListener(ctx, pvcName); err != nil {
-			logger.V(1).Info("listener volume is not node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolume", listenerVolume)
+	for _, listenerName := range listenerVolumesToListenerName {
+		if hasNodeScope, err := p.checkNodeScopeByListener(ctx, listenerName); err != nil {
+			logger.V(1).Info("listener volume is not node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolume", listenerName)
 			return false, err
 		} else if hasNodeScope {
-			logger.V(1).Info("listener volume is node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolume", listenerVolume)
+			logger.V(1).Info("listener volume is node scope", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerVolume", listenerName)
 			return true, nil
 		}
 	}
-
 	return false, nil
 }
 
-// Check if the listener's scope is node scope through listenerVolume referenced pvc.
-func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, pvcName string) (bool, error) {
-	pvc, err := p.getPVC(ctx, pvcName)
+// Check if the listener's scope is node scope through the listener
+func (p *PodInfo) checkNodeScopeByListener(ctx context.Context, listenerName string) (bool, error) {
+	listener, err := p.getListener(ctx, listenerName)
 	if err != nil {
 		return false, err
 	}
 
-	listenerClassName, found := pvc.Annotations[constants.AnnotationListenersClass]
-	// When listener class is not found in listener pvc annotations, try to find listener name in listener pvc annotations
-	// and get listener class from listener
-	if !found {
-		logger.V(1).Info("can not find listener class in listener pvc annotations", "pod", p.getPodName(), "namespace",
-			p.getPodNamespace(), "pvcName", pvcName,
-		)
-
-		listenerName, found := pvc.Annotations[constants.AnnotationListenerName]
-		if !found {
-			logger.V(1).Info("can not find listener name in listener pvc annotations", "pod", p.getPodName(),
-				"namespace", p.getPodNamespace(), "pvcName", pvcName,
-			)
-			return false, nil
-		}
-		logger.V(1).Info("get listener name from listener pvc annotations", "pod", p.getPodName(), "namespace",
-			p.getPodNamespace(), "pvcName", pvcName, "listenerName", listenerName,
-		)
-		listener, err := p.getListener(ctx, listenerName)
-		if err != nil {
-			return false, err
-		}
-		listenerClassName = listener.Spec.ClassName
-		logger.V(1).Info("get listener class name from listener", "pod", p.getPodName(), "namespace",
-			p.getPodNamespace(), "pvcName", pvcName, "listenerClass", listenerClassName,
-		)
-	}
-
-	listenerClass, err := p.getListenerClass(ctx, listenerClassName)
+	listenerClass, err := p.getListenerClass(ctx, listener.Spec.ClassName)
 	if err != nil {
 		return false, err
 	}
 
+	logger.V(1).Info("check listener class service type", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "listenerName", listenerName,
+		"listenerClass", listenerClass.Name, "serviceType", *listenerClass.Spec.ServiceType)
 	return *listenerClass.Spec.ServiceType == corev1.ServiceTypeNodePort, nil
 }
 
