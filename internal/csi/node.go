@@ -76,11 +76,11 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	// because we deliver it from controller to node already.
 	// The following PVC annotations is required:
 	//   - secrets.kubedoop.dev/class: <secret-class-name>
-	volumeSelector, err := volume.NewVolumeSelectorFromMap(request.GetVolumeContext())
+	volumeContext, err := volume.NewvolumeContextFromMap(request.GetVolumeContext())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if volumeSelector.Class == "" {
+	if volumeContext.Class == "" {
 		return nil, status.Error(codes.InvalidArgument, "Secret class name missing in request")
 	}
 
@@ -88,7 +88,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	// get the secret class
 	// SecretClass is cluster coped, so we don't need to specify the namespace
 	if err := n.client.Get(ctx, client.ObjectKey{
-		Name: volumeSelector.Class,
+		Name: volumeContext.Class,
 	}, secretClass); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -96,16 +96,19 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	// get the pod
 	pod := &corev1.Pod{}
 	if err := n.client.Get(ctx, client.ObjectKey{
-		Name:      volumeSelector.Pod,
-		Namespace: volumeSelector.PodNamespace,
+		Name:      volumeContext.Pod,
+		Namespace: volumeContext.PodNamespace,
 	}, pod); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	podInfo := pod_info.NewPodInfo(n.client, pod, volumeSelector)
+	podInfo := pod_info.NewPodInfo(n.client, pod, &volumeContext.Scope)
 
 	// get the secret data
-	backend := secretbackend.NewBackend(n.client, podInfo, volumeSelector, secretClass)
+	backend, err := secretbackend.NewBackend(ctx, n.client, podInfo, volumeContext)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	secretContent, err := backend.GetSecretData(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

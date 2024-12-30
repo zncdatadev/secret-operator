@@ -17,24 +17,19 @@ import (
 var _ IBackend = &KerberosBackend{}
 
 type KerberosBackend struct {
-	client         client.Client
-	podInfo        *pod_info.PodInfo
-	volumeSelector *volume.SecretVolumeSelector
-	spec           *secretsv1alpha1.KerberosKeytabSpec
+	client        client.Client
+	podInfo       *pod_info.PodInfo
+	volumeContext *volume.SecretVolumeContext
+	spec          *secretsv1alpha1.KerberosKeytabSpec
 }
 
-func NewKerberosBackend(
-	client client.Client,
-	podInfo *pod_info.PodInfo,
-	volumeSelector *volume.SecretVolumeSelector,
-	spec *secretsv1alpha1.KerberosKeytabSpec,
-) *KerberosBackend {
+func NewKerberosBackend(config *BackendConfig) (IBackend, error) {
 	return &KerberosBackend{
-		client:         client,
-		podInfo:        podInfo,
-		volumeSelector: volumeSelector,
-		spec:           spec,
-	}
+		client:        config.Client,
+		podInfo:       config.PodInfo,
+		volumeContext: config.VolumeContext,
+		spec:          config.SecretClass.Spec.Backend.KerberosKeytab,
+	}, nil
 }
 
 func (k *KerberosBackend) getKrb5Config() *kerberos.Krb5Config {
@@ -43,6 +38,11 @@ func (k *KerberosBackend) getKrb5Config() *kerberos.Krb5Config {
 		AdminServer: k.spec.AdminServer.MIT.KadminServer,
 		KDC:         k.spec.KDC,
 	}
+}
+
+func (k *KerberosBackend) GetQualifiedNodeNames(ctx context.Context) ([]string, error) {
+	// Default to the node name if no node selector is specified
+	return nil, nil
 }
 
 // GetSecretData implements Backend.
@@ -63,7 +63,7 @@ func (k *KerberosBackend) GetSecretData(ctx context.Context) (*util.SecretConten
 }
 
 func (k *KerberosBackend) provisionKeytab(ctx context.Context) ([]byte, error) {
-	adminKeytab, err := k.GetAdminKeytab(ctx)
+	adminKeytab, err := k.getAdminKeytab(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (k *KerberosBackend) provisionKeytab(ctx context.Context) ([]byte, error) {
 	return keytab, nil
 }
 
-func (k *KerberosBackend) GetAdminKeytab(ctx context.Context) ([]byte, error) {
+func (k *KerberosBackend) getAdminKeytab(ctx context.Context) ([]byte, error) {
 	obj := &corev1.Secret{}
 	if err := k.client.Get(ctx, client.ObjectKey{
 		Namespace: k.spec.AdminKeytabSecret.Namespace,
@@ -116,7 +116,7 @@ func (k *KerberosBackend) getPrincipals(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	svcNames := k.volumeSelector.KerberosServiceNames
+	svcNames := k.volumeContext.KerberosServiceNames
 
 	principals := make([]string, 0)
 

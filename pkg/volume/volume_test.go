@@ -8,21 +8,21 @@ import (
 	"github.com/zncdatadev/operator-go/pkg/constants"
 )
 
-func TestSecretVolumeSelectorToMap(t *testing.T) {
+func TestSecretVolumeContextToMap(t *testing.T) {
 
 	tests := []struct {
 		name string
-		a    SecretVolumeSelector
+		a    SecretVolumeContext
 		want map[string]string
 	}{
 		{
 			name: "empty",
-			a:    SecretVolumeSelector{},
+			a:    SecretVolumeContext{},
 			want: map[string]string{},
 		},
 		{
 			name: "full",
-			a: SecretVolumeSelector{
+			a: SecretVolumeContext{
 				Pod:                "my-pod",
 				PodNamespace:       "my-namespace",
 				PodUID:             "my-uid",
@@ -57,12 +57,12 @@ func TestSecretVolumeSelectorToMap(t *testing.T) {
 				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
 				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
-				AnnotationSecretsCertRestartBuffer:              "5m0s",
+				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
 		},
 		{
 			name: "part-scope",
-			a: SecretVolumeSelector{
+			a: SecretVolumeContext{
 				Scope: SecretScope{
 					Node:            ScopeNode,
 					ListenerVolumes: []string{"my-listener-volume"},
@@ -86,16 +86,16 @@ func TestSecretVolumeSelectorToMap(t *testing.T) {
 
 }
 
-func TestNewVolumeSelectorFromMap(t *testing.T) {
+func TestNewvolumeContextFromMap(t *testing.T) {
 	tests := []struct {
 		name       string
 		parameters map[string]string
-		expected   *SecretVolumeSelector
+		expected   *SecretVolumeContext
 	}{
 		{
 			name:       "empty",
 			parameters: map[string]string{},
-			expected:   &SecretVolumeSelector{},
+			expected:   &SecretVolumeContext{},
 		},
 		{
 			name: "full",
@@ -113,9 +113,9 @@ func TestNewVolumeSelectorFromMap(t *testing.T) {
 				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
 				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
-				AnnotationSecretsCertRestartBuffer:              "5m0s",
+				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
-			expected: &SecretVolumeSelector{
+			expected: &SecretVolumeContext{
 				Pod:                "my-pod",
 				PodNamespace:       "my-namespace",
 				PodUID:             "my-uid",
@@ -141,7 +141,7 @@ func TestNewVolumeSelectorFromMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := NewVolumeSelectorFromMap(tt.parameters)
+			result, err := NewvolumeContextFromMap(tt.parameters)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
