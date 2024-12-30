@@ -2,29 +2,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auto-tls
+  name: tls-p12
   labels:
-    name: auto-tls
+    name: tls-p12
 spec:
   replicas: 3
   selector:
     matchLabels:
-      name: auto-tls
+      name: tls-p12
   template:
     metadata:
       labels:
-        name: auto-tls
+        name: tls-p12
     spec:
       containers:
-      - name: auto-tls
+      - name: tls-p12
         image: quay.io/zncdatadev/testing-tools:0.1.0-kubedoop0.0.0-dev
         command:
         - /bin/bash
         - -c
         - |
-          KEYSTORE_FILE=/opt/security/tls/keystore.p12
-          TRUSTSTORE_FILE=/opt/security/tls/truststore.p12
-          SERVER_PEM_FILE=/opt/security/tls/server.pem
+          KEYSTORE_FILE=/kubedoop/tls/keystore.p12
+          TRUSTSTORE_FILE=/kubedoop/tls/truststore.p12
+          SERVER_PEM_FILE=/kubedoop/tls/server.pem
 
           # Arguments:
           # Returns:
@@ -66,8 +66,8 @@ spec:
             sleep 10
           done
 
-          # save assert result success to /kubedoop/assert/success
-          echo "success" > /kubedoop/assert/success
+          # save assert result success to /tmp/assert
+          echo "success" > /tmp/assert
 
           sleep infinity
 
@@ -93,7 +93,7 @@ spec:
             command:
             - test
             - -f
-            - /kubedoop/assert/success
+            - /tmp/assert
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5

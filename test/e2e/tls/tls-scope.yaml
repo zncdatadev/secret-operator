@@ -3,6 +3,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tls-scope
+  labels:
+    name: tls-scope
 spec:
   replicas: 3
   selector:
@@ -72,8 +74,8 @@ spec:
               sleep 10
             done
 
-            # save assert result success to /kubedoop/assert/success
-            echo "success" > /kubedoop/assert/success
+            # save assert result success to /tmp/assert
+            echo "success" > /tmp/assert
             sleep infinity
         ports:
         - containerPort: 443
@@ -83,7 +85,7 @@ spec:
             command:
             - test
             - -f
-            - /kubedoop/assert/success
+            - /tmp/assert
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 5
@@ -94,8 +96,6 @@ spec:
           mountPath: /kubedoop/tls
         - name: tls-scope-listener-eph-volume
           mountPath: /kubedoop/listener
-        - name: assert
-          mountPath: /kubedoop/assert
       volumes:
       - name: assert
         emptyDir: {}

@@ -10,6 +10,11 @@ spec:
           file: tls-pkcs12.yaml
       - assert:
           file: tls-pkcs12-assert.yaml
+    - try:
+      - apply:
+          file: tls-scope.yaml
+      - assert:
+          file: tls-scope-assert.yaml
     # tls will expires case
     - try:
       - apply:
@@ -26,10 +31,13 @@ spec:
       - sleep:
           duration: 80s
       - script:
+          env:
+            - name: NAMESPACE
+              value: ($namespace)
           content: |
             # count k8s events with `Successfully assigned default/tls-will-expires-0 to ` filter with pod name
             # If the count > 1, then the test is fine, pod is restarted when the certificate expires
-            restart_count=$(kubectl get events --field-selector involvedObject.name=tls-will-expires-0 --no-headers | grep 'Successfully assigned default/tls-will-expires-0 to ' | wc -l)
+            restart_count=$(kubectl -n "$NAMESPACE" get events --field-selector involvedObject.name=tls-will-expires-0 --no-headers | grep 'Started container tls-will-expires' | wc -l)
             if [ $restart_count -gt 1 ]; then
               echo "Pod tls-will-expires-0 is restarted when the certificate expires"
             else
@@ -38,8 +46,3 @@ spec:
             fi
           check:
             ($error == null): true
-    - try:
-      - apply:
-          file: tls-scope.yaml
-      - assert:
-          file: tls-scope-assert.yaml
