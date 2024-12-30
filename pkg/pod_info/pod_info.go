@@ -76,7 +76,7 @@ func (p *PodInfo) getNodeAddresses(ctx context.Context) ([]Address, error) {
 		}
 	}
 
-	logger.V(1).Info("get node ip filter by internal and external", "pod", p.getPodName(),
+	logger.V(1).Info("got node ip filter by internal and external", "pod", p.getPodName(),
 		"namespace", p.getPodNamespace(), "addresses", addresses)
 	return addresses, nil
 }

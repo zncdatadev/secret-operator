@@ -4,9 +4,7 @@ kind: Pod
 metadata:
   name: krb5-node-scope
 status:
-  phase: Running
+  phase: Succeeded
   containerStatuses:
   - name: main
-    ready: true
     restartCount: 0
-    started: true

@@ -1,0 +1,140 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tls-scope
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tls-scope
+  template:
+    metadata:
+      labels:
+        app: tls-scope
+    spec:
+      containers:
+      - name: tls-scope
+        image: quay.io/zncdatadev/testing-tools:0.1.0-kubedoop0.0.0-dev
+        env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        command:
+          - /bin/bash
+          - -c
+          - |
+            # check tls.crt san has secret scope value
+            # Arguments:
+            # Returns:
+            #   0: success
+            #   1: fail
+            function checkTLSSAN () {
+              # check /kubedoop/tls/tls.crt exists
+              if [ ! -f /kubedoop/tls/tls.crt ]; then
+                echo "/kubedoop/tls/tls.crt does not exist" >&2
+                return 1
+              fi
+
+              # Tls SAN check
+              # X509v3 Subject Alternative Name: critical
+              #     DNS:secret-operator-1.26.15-control-plane, DNS:tls-scope-https.default.svc.cluster.local, DNS:tls-scope-74c794dc64-88mh8-tls-scope-listener-eph-volume.default.svc.cluster.local, IP Address:172.18.0.2
+              tls_san=$(openssl x509 -in /kubedoop/tls/tls.crt -noout -text | grep -A 1 "Subject Alternative Name")
+              echo "tls_san: \n$tls_san\n" >&2
+
+              # check tls_san container some value
+              svc_san="tls-scope-https.$NAMESPACE.svc.cluster.local"
+              listener_san="tls-scope-listener-eph-volume.$NAMESPACE.svc.cluster.local"
+              check_lists=($svc_san $listener_san)
+
+              for check in ${check_lists[@]}; do
+                if [[ $tls_san != *$check* ]]; then
+                  echo "tls_san does not contain $check" >&2
+                  return 1
+                fi
+              done
+
+              return 0
+            }
+
+            # Continuous check with 10 seconds interval until the function returns 0
+            while true; do
+              checkTLSSAN
+              if [ $? -eq 0 ]; then
+                echo "tls_san check success"
+                break
+              fi
+              sleep 10
+            done
+
+            # save assert result success to /kubedoop/assert/success
+            echo "success" > /kubedoop/assert/success
+            sleep infinity
+        ports:
+        - containerPort: 443
+          name: https
+        readinessProbe:
+          exec:
+            command:
+            - test
+            - -f
+            - /kubedoop/assert/success
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        volumeMounts:
+        - name: tls
+          mountPath: /kubedoop/tls
+        - name: tls-scope-listener-eph-volume
+          mountPath: /kubedoop/listener
+        - name: assert
+          mountPath: /kubedoop/assert
+      volumes:
+      - name: assert
+        emptyDir: {}
+      - name: tls
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                secrets.kubedoop.dev/class: tls
+                secrets.kubedoop.dev/format: pem
+                secrets.kubedoop.dev/scope: pod,node,service=tls-scope-https,listener-volume=tls-scope-listener-eph-volume
+                secrets.kubedoop.dev/tlsPKCS12Password: changeit
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              storageClassName: secrets.kubedoop.dev
+              resources:
+                requests:
+                  storage: 1Mi
+      - name: tls-scope-listener-eph-volume
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                listeners.kubedoop.dev/class: cluster-internal # this is service ClusterIP
+                # listeners.kubedoop.dev/class: external-unstable # this is service NodePort
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              storageClassName: listeners.kubedoop.dev
+              resources:
+                requests:
+                  storage: 1Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tls-scope-https
+spec:
+  selector:
+    app: tls-scope
+  ports:
+  - port: 443
+    targetPort: https

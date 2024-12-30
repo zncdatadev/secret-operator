@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tls-scope
+  labels:
+    name: tls-scope
+status:
+  availableReplicas: 3
+  readyReplicas: 3
+  replicas: 3
+  updatedReplicas: 3

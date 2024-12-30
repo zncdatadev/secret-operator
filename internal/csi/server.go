@@ -72,7 +72,7 @@ func (s *nonBlockingServer) serveGrpc(endpoint string, ids csi.IdentityServer, c
 	if proto == "unix" {
 		addr = "/" + addr
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			logger.V(0).Info("Failed to remove", "addr", addr, "error", err.Error())
+			logger.V(0).Info("failed to remove", "addr", addr, "error", err.Error())
 		}
 	}
 

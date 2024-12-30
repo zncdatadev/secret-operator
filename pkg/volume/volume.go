@@ -188,7 +188,7 @@ func NewvolumeContextFromMap(parameters map[string]string) (*SecretVolumeContext
 		case VolumeKubernetesStorageProvisioner:
 			v.Provisioner = value
 		case DeprecatedVolumeKubernetesStorageProvisioner:
-			logger.V(0).Info("Deprecated key since v1.23, please use new key",
+			logger.V(0).Info("deprecated key since v1.23, please use new key",
 				"key", key,
 				"value", value,
 				"new key", VolumeKubernetesStorageProvisioner,

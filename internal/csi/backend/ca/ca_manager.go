@@ -95,7 +95,7 @@ func (c *CertificateManager) secretCreateIfDoesNotExist(ctx context.Context) err
 		return err
 	}
 
-	logger.V(1).Info("Created a new secret", "name", c.name, "namespace", c.namespace, "auto", c.auto)
+	logger.V(1).Info("created a new secret", "name", c.name, "namespace", c.namespace, "auto", c.auto)
 	return nil
 
 }
@@ -115,7 +115,7 @@ func (c CertificateManager) getPEMKeyPairsFromSecret(ctx context.Context) ([]PEM
 		}
 	}
 
-	logger.V(0).Info("Get certificate authorities PEM key pairs from secret", "name", c.name, "namespace", c.namespace, "len", len(keyPairs))
+	logger.V(0).Info("got certificate authorities PEM key pairs from secret", "name", c.name, "namespace", c.namespace, "len", len(keyPairs))
 	return keyPairs, nil
 }
 
@@ -171,7 +171,7 @@ func (c *CertificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair)
 			return nil, err
 		}
 		if ca.Certificate.NotAfter.Before(time.Now()) {
-			logger.V(0).Info("Certificate authority is expired, skip it.", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter)
+			logger.V(0).Info("certificate authority is expired, skip it.", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter)
 			continue
 		}
 		cas = append(cas, ca)
@@ -187,7 +187,7 @@ func (c *CertificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair)
 			)
 		}
 
-		logger.V(0).Info("Could not find any certificate authorities, created a new self-signed certificate authority", "name", c.name, "namespace", c.namespace, "auto", c.auto)
+		logger.V(0).Info("could not find any certificate authorities, created a new self-signed certificate authority", "name", c.name, "namespace", c.namespace, "auto", c.auto)
 		ca, err := c.createSelfSignedCertificateAuthority()
 		if err != nil {
 			return nil, err
@@ -213,7 +213,7 @@ func (c *CertificateManager) createSelfSignedCertificateAuthority() (*Certificat
 	if err != nil {
 		return nil, err
 	}
-	logger.V(0).Info("Created new self-signed certificate authority", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter)
+	logger.V(0).Info("created new self-signed certificate authority", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter)
 	return ca, nil
 }
 
@@ -248,19 +248,19 @@ func (c *CertificateManager) rotateCertificateAuthority(cas []*CertificateAuthor
 			if err != nil {
 				return nil, err
 			}
-			logger.V(0).Info("Rotated certificate authority, because the old ca is about to expire",
+			logger.V(0).Info("rotated certificate authority, because the old ca is about to expire",
 				"serialNumber", newestCA.SerialNumber(),
 				"notAfter", newCA.Certificate.NotAfter,
 			)
 			cas = append(cas, newCA)
 		} else {
-			logger.V(0).Info("Certificate authority is about to expire, but auto-generate is disabled, please rotate manually.",
+			logger.V(0).Info("certificate authority is about to expire, but auto-generate is disabled, please rotate manually.",
 				"serialNumber", newestCA.SerialNumber(),
 				"notAfter", newestCA.Certificate.NotAfter,
 			)
 		}
 	} else {
-		logger.V(0).Info("Certificate authority is still valid, no need to rotate",
+		logger.V(0).Info("certificate authority is still valid, no need to rotate",
 			"serialNumber", newestCA.SerialNumber(),
 			"notAfter", newestCA.Certificate.NotAfter,
 		)
@@ -283,7 +283,7 @@ func (c *CertificateManager) getAliveCertificateAuthority(atAfter time.Time, cas
 		}
 		return 0
 	})
-	logger.V(0).Info("Get alive certificate authority", "serialNumber", oldestCA.SerialNumber(), "notAfter", oldestCA.Certificate.NotAfter)
+	logger.V(0).Info("got alive certificate authority", "serialNumber", oldestCA.SerialNumber(), "notAfter", oldestCA.Certificate.NotAfter)
 
 	return oldestCA
 }

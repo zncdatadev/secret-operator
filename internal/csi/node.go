@@ -144,7 +144,7 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 	}
 	patch := client.MergeFrom(pod.DeepCopy())
 	if expiresTime == nil {
-		logger.V(5).Info("Expiration time is nil, skip update pod annotation", "pod", pod.Name)
+		logger.V(5).Info("expiration time is nil, skip update pod annotation", "pod", pod.Name)
 		return nil
 	}
 
@@ -157,14 +157,14 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 
 	annotationExpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volumeTag)
 	expiresTimeStr := expiresTime.Format(time.RFC3339)
-	logger.V(5).Info("Update pod annotation", "pod", pod.Name, "key", annotationExpiresName, "value", expiresTimeStr)
+	logger.V(5).Info("update pod annotation", "pod", pod.Name, "key", annotationExpiresName, "value", expiresTimeStr)
 
 	pod.Annotations[annotationExpiresName] = expiresTimeStr
 
 	if err := n.client.Patch(ctx, pod, patch); err != nil {
 		return err
 	}
-	logger.V(5).Info("Pod patched", "pod", pod.Name)
+	logger.V(5).Info("pod patched", "pod", pod.Name)
 	return nil
 }
 
@@ -177,9 +177,9 @@ func (n *NodeServer) writeData(targetPath string, data map[string]string) error 
 		if err := os.WriteFile(fileName, []byte(content), fs.FileMode(0644)); err != nil {
 			return err
 		}
-		logger.V(5).Info("File written", "file", fileName)
+		logger.V(5).Info("file written", "file", fileName)
 	}
-	logger.V(5).Info("Data written", "target", targetPath)
+	logger.V(5).Info("data written", "target", targetPath)
 	return nil
 }
 
@@ -218,7 +218,7 @@ func (n *NodeServer) mount(targetPath string) error {
 	if err := n.mounter.Mount("tmpfs", targetPath, "tmpfs", opts); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	logger.V(1).Info("Volume mounted", "source", "tmpfs", "target", targetPath, "fsType", "tmpfs", "options", opts)
+	logger.V(1).Info("volume mounted", "source", "tmpfs", "target", targetPath, "fsType", "tmpfs", "options", opts)
 	return nil
 }
 
@@ -239,7 +239,7 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 	if err := n.mounter.Unmount(targetPath); err != nil {
 		// FIXME: use status.Error to return error
 		// return nil, status.Error(codes.Internal, err.Error())
-		logger.V(0).Info("Volume not found, skip delete volume")
+		logger.V(0).Info("volume not found, skip delete volume")
 	}
 
 	// remove the target path

@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tls-will-expires
+  labels:
+    name: tls-will-expires
+spec:
+  replicas: 1
+  serviceName: default
+  selector:
+    matchLabels:
+      name: tls-will-expires
+  template:
+    metadata:
+      labels:
+        name: tls-will-expires
+    spec:
+      containers:
+      - name: tls-will-expires
+        image: caddy:2
+        resources:
+          limits:
+            memory: "100Mi"
+            cpu: "100m"
+        ports:
+        - containerPort: 80
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: tls
+          mountPath: /opt/security/tls
+      volumes:
+      - name: tls
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                secrets.kubedoop.dev/class: tls
+                secrets.kubedoop.dev/format: pem
+                secrets.kubedoop.dev/scope: pod,node
+                secrets.kubedoop.dev/tlsPKCS12Password: changeit
+                # Golang duration string is a possibly signed sequence of decimal numbers,
+                # each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m".
+                # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+                secrets.kubedoop.dev/autoTlsCertLifetime: 60s
+                secrets.kubedoop.dev/autoTlsCertRestartBuffer: 10s
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              storageClassName: secrets.kubedoop.dev
+              resources:
+                requests:
+                  storage: 1Mi
