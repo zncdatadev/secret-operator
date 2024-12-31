@@ -22,10 +22,10 @@ var (
 )
 
 type CertificateManager struct {
-	client               client.Client
+	client                client.Client
 	caCertificateLifetime time.Duration
-	auto                 bool
-	name, namespace      string
+	auto                  bool
+	name, namespace       string
 
 	secret *corev1.Secret
 	cas    []*CertificateAuthority
@@ -44,11 +44,11 @@ func NewCertificateManager(
 	name, namespace string,
 ) *CertificateManager {
 	obj := &CertificateManager{
-		client:               client,
+		client:                client,
 		caCertificateLifetime: caCertificateLifetime,
-		auto:                 auto,
-		name:                 name,
-		namespace:            namespace,
+		auto:                  auto,
+		name:                  name,
+		namespace:             namespace,
 
 		secret: &corev1.Secret{
 			ObjectMeta: ctrl.ObjectMeta{
