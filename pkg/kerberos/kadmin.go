@@ -118,7 +118,7 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 		kadminLogger.Error(err, "Failed to execute kadmin query", "cmd", cmd.String(), "output", result)
 		return "", err
 	}
-	kadminLogger.Info("Executed kadmin query", "cmd", cmd.String(), "output", result)
+	kadminLogger.Info("executed kadmin query", "cmd", cmd.String(), "output", result)
 
 	return result, nil
 
@@ -149,7 +149,7 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 		return nil, err
 	}
 
-	kadminLogger.Info("Saved keytab", "principal", principals, "keytab", keytab, "output", output)
+	kadminLogger.Info("saved keytab", "principal", principals, "keytab", keytab, "output", output)
 
 	return os.ReadFile(keytab)
 }
@@ -186,7 +186,7 @@ func (k *Kadmin) AddPrincipal(principal string) error {
 		return err
 	}
 
-	kadminLogger.Info("Added principal", "principal", principal, "output", output)
+	kadminLogger.Info("created a new principal", "principal", principal, "output", output)
 
 	return nil
 }

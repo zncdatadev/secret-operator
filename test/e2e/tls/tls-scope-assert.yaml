@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auto-tls
+  name: tls-scope
   labels:
-    name: auto-tls
+    name: tls-scope
 status:
   availableReplicas: 3
   readyReplicas: 3

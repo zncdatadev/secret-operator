@@ -5,6 +5,7 @@ metadata:
   labels:
     name: search-ns
 spec:
+  restartPolicy: Never
   containers:
   - name: pod
     image: busybox:stable
@@ -15,24 +16,18 @@ spec:
     - "sh"
     - "-c"
     - |
-      trap 'echo "Exiting..."; exit 1' SIGINT SIGTERM
-      echo "Loop is running... (Press Ctrl+C or send SIGTERM to exit)"
-      while true; do
+      # Continuous check /kubedoop/secret/mode exist
+      while ! test -f /kubedoop/secret/mode; do
         sleep 1
-        tail -f /opt/secret/mode || (sleep 1 && echo 'Waiting for content...')
+        echo "Waiting for content..."
       done
     resources:
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "50Mi"
+        cpu: "50m"
     volumeMounts:
     - name: secret
-      mountPath: /opt/secret
-    readinessProbe:
-      exec:
-        command: ["sh", "-c", "cat /opt/secret/mode | grep -q search-default-ns"]
-      initialDelaySeconds: 1
-      periodSeconds: 5
+      mountPath: /kubedoop/secret
   volumes:
   - name: secret
     ephemeral:

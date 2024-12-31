@@ -27,7 +27,7 @@ spec:
       securityContext:
         {}
       containers:
-        - name: secret-operator
+        - name: secret-csi-driver
           securityContext:
             privileged: true
             runAsUser: 0
@@ -35,11 +35,11 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             limits:
-              cpu: 100m
+              cpu: 512m
               memory: 128Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 50Mi
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock

@@ -89,6 +89,14 @@ spec:
         file: node-scope.yaml
     - assert:
         file: node-scope-assert.yaml
+    catch:
+      - script:
+          env:
+            - name: NAMESPACE
+              value: ($namespace)
+          content: |
+            kubectl -n "$NAMESPACE" get pod
+            kubectl -n "$NAMESPACE" describe pod
   - try:
     - apply:
         file: service-scope.yaml

@@ -1,50 +1,33 @@
 ---
 apiVersion: v1
-kind: Service
-metadata:
-  name: krb5-pod-scope-service
-spec:
-  selector:
-    app: krb5-pod-scope
-  ports:
-  - port: 80
-    targetPort: http
-
----
-apiVersion: v1
 kind: Pod
 metadata:
   name: krb5-pod-scope
   labels:
     name: krb5-pod-scope
 spec:
+  restartPolicy: Never
   containers:
   - name: main
-    image: rockylinux/rockylinux:9
+    image: quay.io/zncdatadev/testing-tools:0.1.0-kubedoop0.0.0-dev
     command:
     - "sh"
     - "-c"
     - |
-      set -ex
-      dnf install krb5-workstation nginx -y
-
       echo "Loop is running... (Press Ctrl+C or send SIGTERM to exit)"
-      while ! test -f /opt/secret/keytab; do
+      while ! test -f /kubedoop/secret/keytab; do
         sleep 1
         echo "Waiting for content..."
       done
 
-      KERBEROS_REALM=$(grep -oP 'default_realm = \K.*' /opt/secret//krb5.conf)
+      KERBEROS_REALM=$(grep -oP 'default_realm = \K.*' /kubedoop/secret//krb5.conf)
 
-      klist -kt /opt/secret/keytab
+      klist -kt /kubedoop/secret/keytab
 
-      kinit -kt /opt/secret/keytab foo/krb5-pod-scope-service.$NAMESPACE.svc.cluster.local@$KERBEROS_REALM
-      kinit -kt /opt/secret/keytab foo/krb5-pod-scope.krb5-pod-scope-service.$NAMESPACE.svc.cluster.local@$KERBEROS_REALM
+      kinit -kt /kubedoop/secret/keytab foo/krb5-pod-scope-service.$NAMESPACE.svc.cluster.local@$KERBEROS_REALM
+      kinit -kt /kubedoop/secret/keytab foo/krb5-pod-scope.krb5-pod-scope-service.$NAMESPACE.svc.cluster.local@$KERBEROS_REALM
 
       klist -e
-
-      echo start nginx server
-      nginx -g "daemon off;"
     env:
     - name: NAMESPACE
       valueFrom:
@@ -55,24 +38,18 @@ spec:
         fieldRef:
           fieldPath: spec.nodeName
     - name: KRB5_CONFIG
-      value: /opt/secret//krb5.conf
+      value: /kubedoop/secret/krb5.conf
     resources:
       limits:
-        memory: "526Mi"
-        cpu: "500m"
+        memory: "50Mi"
+        cpu: "50m"
     ports:
     - containerPort: 80
       protocol: TCP
       name: http
-
     volumeMounts:
     - name: secret
-      mountPath: /opt/secret
-    readinessProbe:
-      httpGet:
-        port: http
-      initialDelaySeconds: 5
-      periodSeconds: 5
+      mountPath: /kubedoop/secret
   subdomain: krb5-pod-scope-service
   volumes:
   - name: secret

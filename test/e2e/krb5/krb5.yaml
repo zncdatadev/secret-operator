@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: krb5
-        image: quay.io/zncdatadev-test/krb5:dev
+        image: quay.io/zncdatadev/krb5:1.21.1-kubedoop0.0.0-dev
         args:
           - -r
           - ($relam)  # chainsaw bindings value
@@ -50,8 +50,8 @@ spec:
             mountPath: /data
         resources:
           limits:
-            memory: "526Mi"
-            cpu: "300m"
+            memory: "128Mi"
+            cpu: "100m"
         readinessProbe:
           exec:
             command:

@@ -56,7 +56,7 @@ func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.Create
 	requiredCap := request.CapacityRange.GetRequiredBytes()
 
 	if request.Parameters["secretFinalizer"] == "true" {
-		logger.V(1).Info("Finalizer is true")
+		logger.V(1).Info("finalizer is true")
 	}
 
 	// requests.parameters is StorageClass.Parameters, which is set by user when creating PVC.
@@ -179,7 +179,7 @@ func (c *ControllerServer) DeleteVolume(ctx context.Context, request *csi.Delete
 	}
 
 	if !dynamic {
-		logger.V(5).Info("Volume is not dynamic, skip delete volume")
+		logger.V(5).Info("volume is not dynamic, skip delete volume")
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 

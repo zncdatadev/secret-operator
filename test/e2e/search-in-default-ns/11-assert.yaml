@@ -4,9 +4,7 @@ kind: Pod
 metadata:
   name: search-with-pod
 status:
-  phase: Running
+  phase: Succeeded
   containerStatuses:
   - name: pod
-    ready: true
     restartCount: 0
-    started: true

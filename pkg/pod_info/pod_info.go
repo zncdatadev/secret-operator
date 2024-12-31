@@ -76,7 +76,7 @@ func (p *PodInfo) getNodeAddresses(ctx context.Context) ([]Address, error) {
 		}
 	}
 
-	logger.V(1).Info("get node ip filter by internal and external", "pod", p.getPodName(),
+	logger.V(1).Info("got node ip filter by internal and external", "pod", p.getPodName(),
 		"namespace", p.getPodNamespace(), "addresses", addresses)
 	return addresses, nil
 }
@@ -333,6 +333,12 @@ func (p *PodInfo) getListenerAddresses(ctx context.Context) ([]Address, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// check listener status
+		if len(listener.Status.IngressAddresses) == 0 {
+			return nil, fmt.Errorf("listener %s/%s status not ready", listener.Namespace, listener.Name)
+		}
+
 		for _, ingressAddress := range listener.Status.IngressAddresses {
 			if ingressAddress.AddressType == operatorlistenersv1alpha1.AddressTypeHostname {
 				addresses = append(addresses, Address{

@@ -47,7 +47,7 @@ func NewDriver(
 
 func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
-	logger.V(1).Info("Driver information", "versionInfo", version.GetVersion(d.name))
+	logger.V(1).Info("driver information", "versionInfo", version.GetVersion(d.name))
 
 	// check node id
 	if d.nodeID == "" {
@@ -56,7 +56,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
 	ns := NewNodeServer(
 		d.nodeID,
-		mount.New(""),
+		mount.New("secret-csi"),
 		d.client,
 	)
 
@@ -72,7 +72,7 @@ func (d *Driver) Run(ctx context.Context, testMode bool) error {
 	}()
 
 	d.server.Wait()
-	logger.Info("Server stopped")
+	logger.Info("csi driver stopped")
 	return nil
 }
 

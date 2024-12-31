@@ -4,29 +4,53 @@ metadata:
   name: tls
 spec:
   steps:
-    - try:
-      - assert:
-          file: secretcsi-assert.yaml
+    # tls smoke test case with pkcs12
     - try:
       - apply:
-          file: autotls.yaml
+          file: tls-pkcs12.yaml
       - assert:
-          file: autotls-assert.yaml
+          file: tls-pkcs12-assert.yaml
+    - try:
+      - apply:
+          file: tls-scope.yaml
+      - assert:
+          file: tls-scope-assert.yaml
       catch:
+        - script:
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+            content: |
+              kubectl -n "$NAMESPACE" get pod
+              kubectl -n "$NAMESPACE" describe pod
+    # tls will expires case
+    - try:
+      - apply:
+          file: tls-will-expires.yaml
+      - assert:
+          resource:
+            apiVersion: apps/v1
+            kind: StatefulSet
+            metadata:
+              name: tls-will-expires
+            status:
+              availableReplicas: 1
+              readyReplicas: 1
       - sleep:
-          duration: 5s
+          duration: 80s
       - script:
           env:
             - name: NAMESPACE
               value: ($namespace)
           content: |
-            set -ex
-            kubectl -n $NAMESPACE get pods
-            kubectl -n 
-      - describe:
-          apiVersion: v1
-          kind: Pod
-          selector: name=auto-tls
-      - podLogs:
-          selector: name=auto-tls
-          tail: -1
+            # count k8s events with `Successfully assigned default/tls-will-expires-0 to ` filter with pod name
+            # If the count > 1, then the test is fine, pod is restarted when the certificate expires
+            restart_count=$(kubectl -n "$NAMESPACE" get events --field-selector involvedObject.name=tls-will-expires-0 --no-headers | grep 'Started container tls-will-expires' | wc -l)
+            if [ $restart_count -gt 1 ]; then
+              echo "Pod tls-will-expires-0 is restarted when the certificate expires"
+            else
+              echo "Pod tls-will-expires-0 is not restarted when the certificate expires"
+              exit 1
+            fi
+          check:
+            ($error == null): true
