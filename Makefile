@@ -347,7 +347,7 @@ chainsaw-setup: ## Run the chainsaw setup
 .PHONY: chainsaw-test
 chainsaw-test: chainsaw ## Run the chainsaw test
 	- KUBECONFIG=$(KIND_KUBECONFIG) $(CHAINSAW) test --cluster cluster-1=$(KIND_KUBECONFIG) --test-dir ./test/e2e/tls
-	KUBECONFIG=$(KIND_KUBECONFIG) kubectl logs -n secret-operator-system -l "app.kubernetes.io/name=secret-operator"
+	KUBECONFIG=$(KIND_KUBECONFIG) kubectl logs --tail=-1 -n secret-operator-system -l "app.kubernetes.io/name=secret-operator"
 
 .PHONY: chainsaw-cleanup
 chainsaw-cleanup: ## Run the chainsaw cleanup
