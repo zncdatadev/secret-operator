@@ -35,11 +35,11 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             limits:
-              cpu: 1000m
-              memory: 512Mi
-            requests:
-              cpu: 100m
+              cpu: 512m
               memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 50Mi
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock

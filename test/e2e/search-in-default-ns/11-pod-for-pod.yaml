@@ -22,8 +22,8 @@ spec:
       done
     resources:
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "50Mi"
+        cpu: "50m"
     volumeMounts:
     - name: secret
       mountPath: /kubedoop/secret
