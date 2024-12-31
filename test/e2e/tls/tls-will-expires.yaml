@@ -21,8 +21,8 @@ spec:
         image: caddy:2
         resources:
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"
+            cpu: "100m"
         ports:
         - containerPort: 80
           name: http

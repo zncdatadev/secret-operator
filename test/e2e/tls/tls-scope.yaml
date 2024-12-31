@@ -25,8 +25,8 @@ spec:
                 fieldPath: metadata.namespace
         resources:
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"
+            cpu: "100m"
         command:
           - /bin/bash
           - -c

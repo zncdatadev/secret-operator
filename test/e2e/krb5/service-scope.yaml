@@ -52,8 +52,8 @@ spec:
       value: /kubedoop/secret/krb5.conf
     resources:
       limits:
-        memory: "200Mi"
-        cpu: "256m"
+        memory: "50Mi"
+        cpu: "50m"
     volumeMounts:
     - name: secret
       mountPath: /kubedoop/secret

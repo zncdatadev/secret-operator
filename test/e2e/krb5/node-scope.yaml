@@ -35,8 +35,8 @@ spec:
       value: /kubedoop/secret/krb5.conf
     resources:
       limits:
-        memory: "526Mi"
-        cpu: "500m"
+        memory: "50Mi"
+        cpu: "50m"
     ports:
     - containerPort: 80
       protocol: TCP
