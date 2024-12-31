@@ -23,7 +23,7 @@ var (
 
 type CertificateManager struct {
 	client               client.Client
-	caCertficateLifetime time.Duration
+	caCertificateLifetime time.Duration
 	auto                 bool
 	name, namespace      string
 
@@ -39,13 +39,13 @@ type CertificateManager struct {
 // Now, pem key supports only RSA 256.
 func NewCertificateManager(
 	client client.Client,
-	caCertficateLifetime time.Duration,
+	caCertificateLifetime time.Duration,
 	auto bool,
 	name, namespace string,
 ) *CertificateManager {
 	obj := &CertificateManager{
 		client:               client,
-		caCertficateLifetime: caCertficateLifetime,
+		caCertificateLifetime: caCertificateLifetime,
 		auto:                 auto,
 		name:                 name,
 		namespace:            namespace,
@@ -208,7 +208,7 @@ func (c *CertificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair)
 
 // create a new self-signed certificate authority only no certificate authority is found
 func (c *CertificateManager) createSelfSignedCertificateAuthority() (*CertificateAuthority, error) {
-	notAfter := time.Now().Add(c.caCertficateLifetime)
+	notAfter := time.Now().Add(c.caCertificateLifetime)
 	ca, err := NewSelfSignedCertificateAuthority(notAfter, nil, nil)
 	if err != nil {
 		return nil, err
@@ -242,9 +242,9 @@ func (c *CertificateManager) rotateCertificateAuthority(cas []*CertificateAuthor
 
 	newestCA := cas[len(cas)-1]
 
-	if time.Now().Add(c.caCertficateLifetime / 2).After(newestCA.Certificate.NotAfter) {
+	if time.Now().Add(c.caCertificateLifetime / 2).After(newestCA.Certificate.NotAfter) {
 		if c.auto {
-			newCA, err := newestCA.Rotate(time.Now().Add(c.caCertficateLifetime))
+			newCA, err := newestCA.Rotate(time.Now().Add(c.caCertificateLifetime))
 			if err != nil {
 				return nil, err
 			}
