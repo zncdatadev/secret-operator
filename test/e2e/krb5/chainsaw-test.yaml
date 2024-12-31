@@ -99,11 +99,11 @@ spec:
         file: pod-scope.yaml
     - assert:
         file: pod-scope-assert.yaml
-    - catch:
-      - script:
-          env:
-            - name: NAMESPACE
-              value: ($namespace)
-          content: |
-            kubectl -n "$NAMESPACE" get pod
-            kubectl -n "$NAMESPACE" describe pod
+  - catch:
+    - script:
+        env:
+          - name: NAMESPACE
+            value: ($namespace)
+        content: |
+          kubectl -n "$NAMESPACE" get pod
+          kubectl -n "$NAMESPACE" describe pod
