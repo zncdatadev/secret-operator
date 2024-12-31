@@ -15,6 +15,15 @@ spec:
           file: tls-scope.yaml
       - assert:
           file: tls-scope-assert.yaml
+    - catch:
+      - script:
+          env:
+            - name: NAMESPACE
+              value: ($namespace)
+          content: |
+            kubectl -n "$NAMESPACE" get pod
+            kubectl -n "$NAMESPACE" describe pod
+
     # tls will expires case
     - try:
       - apply:
@@ -46,11 +55,3 @@ spec:
             fi
           check:
             ($error == null): true
-    - catch:
-      - script:
-          env:
-            - name: NAMESPACE
-              value: ($namespace)
-          content: |
-            kubectl -n "$NAMESPACE" get pod
-            kubectl -n "$NAMESPACE" describe pod
