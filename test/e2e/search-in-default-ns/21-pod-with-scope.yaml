@@ -5,6 +5,7 @@ metadata:
   labels:
     name: search-with-pod-scope
 spec:
+  restartPolicy: Never
   containers:
   - name: pod
     image: busybox:stable
