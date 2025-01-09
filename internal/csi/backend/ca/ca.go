@@ -94,15 +94,15 @@ func NewCertificateAuthorityFromData(
 }
 
 // NewCertificateAuthorityFromSecret creates a new CertificateAuthority from a secret
-func NewCertificateAuthority(root *Certificate) (*CertificateAuthority, error) {
+func NewCertificateAuthority(ca *Certificate) (*CertificateAuthority, error) {
 	// check cert is a CA
-	if !root.Certificate.IsCA {
+	if !ca.Certificate.IsCA {
 		return nil, errors.New("root certificate is not a CA")
 	}
 
 	return &CertificateAuthority{
-		Certificate: root.Certificate,
-		privateKey:  root.privateKey,
+		Certificate: ca.Certificate,
+		privateKey:  ca.privateKey,
 	}, nil
 }
 
@@ -128,7 +128,8 @@ func (c *CertificateAuthority) CertificatePEM() []byte {
 func (c *CertificateAuthority) SignCertificate(
 	addresses []pod_info.Address,
 	extKeyUsage []x509.ExtKeyUsage,
-	notAfter time.Time) (*Certificate, error) {
+	notAfter time.Time,
+) (*Certificate, error) {
 	// Generate a new private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -166,25 +167,7 @@ func (c *CertificateAuthority) SignCertificate(
 		template.ExtKeyUsage = extKeyUsage
 	}
 
-	var dnsNames []string
-	var ipAddresses []net.IP
-	for _, address := range addresses {
-		if address.IP != nil {
-			template.IPAddresses = append(template.IPAddresses, address.IP)
-			ipAddresses = append(ipAddresses, address.IP)
-		}
-		if address.Hostname != "" {
-			template.DNSNames = append(template.DNSNames, address.Hostname)
-			dnsNames = append(dnsNames, address.Hostname)
-		}
-	}
-
-	sanExt := &SubjectAltName{
-		DNSNames:    dnsNames,
-		IPAddresses: ipAddresses,
-	}
-
-	ext, err := sanExt.ToExtension()
+	sanExt, err := c.getSANExt(addresses)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +175,7 @@ func (c *CertificateAuthority) SignCertificate(
 	// "If the subject field contains an empty sequence, then the issuer field MUST also contain an empty sequence and the subjectAltName extension MUST be marked as critical."
 	// golang x509 library automatically sets the critical flag if the subject field is empty.
 	// But we pass a invalid subject to the template, so we need to set the critical flag manually.
-	template.ExtraExtensions = append(template.ExtraExtensions, ext)
+	template.ExtraExtensions = append(template.ExtraExtensions, sanExt)
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, c.Certificate, &privateKey.PublicKey, c.privateKey)
 	if err != nil {
@@ -205,11 +188,26 @@ func (c *CertificateAuthority) SignCertificate(
 		return nil, err
 	}
 
-	logger.V(0).Info("Signed certificate", "subject", cert.Subject, "serialNumber", formatSerialNumber(cert.SerialNumber), "notAfter", cert.NotAfter, "sanDns", cert.DNSNames, "sanIp", cert.IPAddresses)
+	logger.V(1).Info("signed certificate", "subject", cert.Subject, "serialNumber", formatSerialNumber(cert.SerialNumber), "notAfter", cert.NotAfter, "sanDns", cert.DNSNames, "sanIp", cert.IPAddresses)
 	return &Certificate{
 		Certificate: cert,
 		privateKey:  privateKey,
 	}, nil
+}
+
+func (c *CertificateAuthority) getSANExt(addresses []pod_info.Address) (pkix.Extension, error) {
+	var dnsNames []string
+	var ipAddresses []net.IP
+	for _, address := range addresses {
+		if address.IP != nil {
+			ipAddresses = append(ipAddresses, address.IP)
+		}
+		if address.Hostname != "" {
+			dnsNames = append(dnsNames, address.Hostname)
+		}
+	}
+	san := &SubjectAltName{DNSNames: dnsNames, IPAddresses: ipAddresses}
+	return san.ToExtension()
 }
 
 func (c *CertificateAuthority) SignServerCertificate(
@@ -232,7 +230,7 @@ func (c *CertificateAuthority) Rotate(notAfter time.Time) (*CertificateAuthority
 		return nil, err
 	}
 
-	logger.V(0).Info("Rotated certificate authority", "notAfter", newCA.Certificate.NotAfter, "newSerialNumber", newCA.SerialNumber(), "currentSerialNumber", c.SerialNumber())
+	logger.V(1).Info("rotated certificate authority", "notAfter", newCA.Certificate.NotAfter, "newSerialNumber", newCA.SerialNumber(), "currentSerialNumber", c.SerialNumber())
 	return newCA, nil
 }
 

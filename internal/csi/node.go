@@ -59,6 +59,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 
 	targetPath := request.GetTargetPath()
 	volumeID := request.GetVolumeId()
+	logger.Info("publishing volume", "volumeID", volumeID, "targetPath", targetPath)
 
 	// get the volume context
 	// Default, volume context contains data:
@@ -129,6 +130,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	logger.Info("volume published", "volumeID", volumeID, "targetPath", targetPath)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -144,7 +146,7 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 	}
 	patch := client.MergeFrom(pod.DeepCopy())
 	if expiresTime == nil {
-		logger.V(5).Info("expiration time is nil, skip update pod annotation", "pod", pod.Name)
+		logger.V(1).Info("expiration time is nil, skip update pod annotation", "pod", pod.Name)
 		return nil
 	}
 
@@ -157,14 +159,14 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 
 	annotationExpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volumeTag)
 	expiresTimeStr := expiresTime.Format(time.RFC3339)
-	logger.V(5).Info("update pod annotation", "pod", pod.Name, "key", annotationExpiresName, "value", expiresTimeStr)
+	logger.V(1).Info("update pod annotation", "pod", pod.Name, "key", annotationExpiresName, "value", expiresTimeStr)
 
 	pod.Annotations[annotationExpiresName] = expiresTimeStr
 
 	if err := n.client.Patch(ctx, pod, patch); err != nil {
 		return err
 	}
-	logger.V(5).Info("pod patched", "pod", pod.Name)
+	logger.V(1).Info("pod patched", "pod", pod.Name)
 	return nil
 }
 
@@ -172,14 +174,15 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 // The data is a map of key-value pairs.
 // The key is the file name, and the value is the file content.
 func (n *NodeServer) writeData(targetPath string, data map[string]string) error {
+	logger.V(1).Info("writing data", "target", targetPath)
 	for name, content := range data {
 		fileName := filepath.Join(targetPath, name)
 		if err := os.WriteFile(fileName, []byte(content), fs.FileMode(0644)); err != nil {
 			return err
 		}
-		logger.V(5).Info("file written", "file", fileName)
+		logger.V(1).Info("file written", "file", fileName)
 	}
-	logger.V(5).Info("data written", "target", targetPath)
+	logger.V(1).Info("data written", "target", targetPath)
 	return nil
 }
 
@@ -264,6 +267,7 @@ func (n *NodeServer) validateNodePublishVolumeRequest(request *csi.NodePublishVo
 	if request.GetVolumeContext() == nil || len(request.GetVolumeContext()) == 0 {
 		return status.Error(codes.InvalidArgument, "Volume context missing in request")
 	}
+
 	return nil
 }
 

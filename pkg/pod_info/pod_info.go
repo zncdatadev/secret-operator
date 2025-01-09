@@ -130,6 +130,11 @@ func (p *PodInfo) getServiceAddresses(serviceNames []string) []Address {
 }
 
 // Get the address information of the pod according to the scope.
+//   - get the node address if the scope contains node
+//   - get the pod address if the scope contains pod
+//   - get the service address if the scope contains service
+//   - get the listener address if the scope contains listener-volume
+//     the listener comes from the listener-volume to pvc information.
 func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	addresses := make([]Address, 0)
 
@@ -157,7 +162,7 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	}
 
 	if scoped.ListenerVolumes != nil {
-		listenerAddresses, err := p.getListenerAddresses(ctx)
+		listenerAddresses, err := p.getScopedListenerAddresses(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -169,9 +174,20 @@ func (p *PodInfo) GetScopedAddresses(ctx context.Context) ([]Address, error) {
 	return addresses, nil
 }
 
-// Get listener volume names to listener name mapping
-// Use cache to avoid multiple calls to the API server
-func (p *PodInfo) GetListenerVolumeNamesToListenerName(ctx context.Context) (map[string]string, error) {
+// Get secret scoped listener volume names to listener name mapping.
+// When the secret has listener-volume scope, get the mapping of the listener volume name to the listener name.
+//
+// This function does the following:
+//   - get the pod's volume name with the PVC name, we call it PodVolumeNamesToPVCNameMapping
+//   - get the scopes of the listener-volume in the secret annotation
+//   - filter out the pod's volume name with PVC name that is in the listener-volume scope
+//     we call it ScopedListenerVolumeNamesToPVCNameMapping
+//   - get the listener name from the PVC annotation, if not found, use the PVC name as the listener name
+//
+// So we get the mapping of the listener volume name to the listener.
+//
+// To avoid frequent queries, we cache the result.
+func (p *PodInfo) GetScopedListenerVolumeNamesToListenerName(ctx context.Context) (map[string]string, error) {
 	// try read cache
 	p.mut.RLock()
 	if p.listenerVolumesToListenerCache != nil {
@@ -190,7 +206,7 @@ func (p *PodInfo) GetListenerVolumeNamesToListenerName(ctx context.Context) (map
 	}
 
 	// fetch listener volume names to listener name
-	listenerVolumesToListenerName, err := p.fetchListenerVolumeNamesToListenerName(ctx)
+	listenerVolumesToListenerName, err := p.fetchScopedListenerVolumeNamesToListenerName(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +216,11 @@ func (p *PodInfo) GetListenerVolumeNamesToListenerName(ctx context.Context) (map
 	return listenerVolumesToListenerName, nil
 }
 
-func (p *PodInfo) fetchListenerVolumeNamesToListenerName(ctx context.Context) (map[string]string, error) {
-	listenerVolumeNameToPvcName := p.getListenerVolumesToPVCNameMapping()
+// fetchScopedListenerVolumeNamesToListenerName fetches the mapping of the listener volume name to the listener name
+// from the secret listener-volume scope
+// - get the listener name from the PVC annotation, if not found, use the PVC name as the listener name
+func (p *PodInfo) fetchScopedListenerVolumeNamesToListenerName(ctx context.Context) (map[string]string, error) {
+	listenerVolumeNameToPvcName := p.getScopedListenerVolumeNamesToPVCNameMapping()
 	if len(listenerVolumeNameToPvcName) == 0 {
 		logger.V(1).Info("no valid listener volumes found in pod",
 			"pod", p.getPodName(),
@@ -218,13 +237,13 @@ func (p *PodInfo) fetchListenerVolumeNamesToListenerName(ctx context.Context) (m
 		}
 
 		if listenerName, exists := pvc.Annotations[constants.AnnotationListenerName]; exists {
-			logger.V(5).Info("using listener name from annotation",
+			logger.V(1).Info("using listener name from annotation",
 				"listenerName", listenerName,
 				"pvc", pvcName,
 				"namespace", pvc.Namespace)
 			listenerVolumesToListenerName[listenerVolumeName] = listenerName
 		} else {
-			logger.V(5).Info("using PVC name as listener name",
+			logger.V(1).Info("using PVC name as listener name",
 				"pvc", pvcName,
 				"namespace", pvc.Namespace)
 			listenerVolumesToListenerName[listenerVolumeName] = pvcName
@@ -245,10 +264,10 @@ func (p *PodInfo) fetchListenerVolumeNamesToListenerName(ctx context.Context) (m
 }
 
 // getListenerVolumesToPVCMapping returns a map of listener volume name to PVC name
-// filter out listener volumes that are not in the secret volume scope of the pod
-func (p *PodInfo) getListenerVolumesToPVCNameMapping() map[string]string {
-	volumeNameToPvcName := p.getPodVolumeNameToPVCNameMapping()
-	if len(volumeNameToPvcName) == 0 {
+// filter out listener volumes that are not in the secret listener-volume scope
+func (p *PodInfo) getScopedListenerVolumeNamesToPVCNameMapping() map[string]string {
+	volumeNamesToPvcName := p.getPodVolumeNamesToPVCNameMapping()
+	if len(volumeNamesToPvcName) == 0 {
 		logger.V(1).Info("no valid volumes found in pod",
 			"pod", p.getPodName(),
 			"namespace", p.getPodNamespace())
@@ -257,7 +276,7 @@ func (p *PodInfo) getListenerVolumesToPVCNameMapping() map[string]string {
 
 	filteredMapping := make(map[string]string)
 	for _, listenerVolume := range p.Scope.ListenerVolumes {
-		if pvcName, exists := volumeNameToPvcName[listenerVolume]; exists {
+		if pvcName, exists := volumeNamesToPvcName[listenerVolume]; exists {
 			filteredMapping[listenerVolume] = pvcName
 		} else {
 			logger.V(1).Info("listener volume not found in pod volumes",
@@ -270,29 +289,31 @@ func (p *PodInfo) getListenerVolumesToPVCNameMapping() map[string]string {
 }
 
 // getPodVolumeNameToPVCMapping returns a map of volume name to PVC name
-func (p *PodInfo) getPodVolumeNameToPVCNameMapping() map[string]string {
-	volumeNameToPvcName := make(map[string]string)
+// - Ephemeral volumes are named after the pod and the volume name
+// - Persistent volume claims are named after the claim name
+func (p *PodInfo) getPodVolumeNamesToPVCNameMapping() map[string]string {
+	volumeNamesToPvcName := make(map[string]string)
 	for _, volume := range p.Pod.Spec.Volumes {
 		if volume.Ephemeral != nil {
 			pvcName := fmt.Sprintf("%s-%s", p.getPodName(), volume.Name)
-			logger.V(5).Info("found ephemeral volume",
+			logger.V(1).Info("found ephemeral volume",
 				"pod", p.getPodName(),
 				"namespace", p.getPodNamespace(),
 				"volume", volume.Name,
 				"pvc", pvcName)
-			volumeNameToPvcName[volume.Name] = pvcName
+			volumeNamesToPvcName[volume.Name] = pvcName
 		} else if volume.PersistentVolumeClaim != nil {
 			pvcName := volume.PersistentVolumeClaim.ClaimName
-			logger.V(5).Info("found pvc volume",
+			logger.V(1).Info("found pvc volume",
 				"pod", p.getPodName(),
 				"namespace", p.getPodNamespace(),
 				"volume", volume.Name,
 				"pvc", pvcName)
-			volumeNameToPvcName[volume.Name] = pvcName
+			volumeNamesToPvcName[volume.Name] = pvcName
 		}
 	}
 
-	return volumeNameToPvcName
+	return volumeNamesToPvcName
 }
 
 func (p *PodInfo) getPVC(ctx context.Context, name string) (*corev1.PersistentVolumeClaim, error) {
@@ -312,23 +333,23 @@ func (p *PodInfo) getPVC(ctx context.Context, name string) (*corev1.PersistentVo
 	return pvc, nil
 }
 
-// Get listener addresses, listener address might be empty.
-func (p *PodInfo) getListenerAddresses(ctx context.Context) ([]Address, error) {
-	// get listener names from listener volumes, where listener volume is in the scope of the pod
-	listenerVolumesToListenerName, err := p.GetListenerVolumeNamesToListenerName(ctx)
+// Get listener addresses, if the scope contains listener-volume.
+func (p *PodInfo) getScopedListenerAddresses(ctx context.Context) ([]Address, error) {
+	// get the mapping of the listener volume name to the listener name from the secret listener-volume scope
+	scopedlistenerVolumeNamesToListenerName, err := p.GetScopedListenerVolumeNamesToListenerName(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// If listener name is empty, then return empty
 	// This situation should be considered normal, because the listener function is optional.
-	if len(listenerVolumesToListenerName) == 0 {
-		logger.V(1).Info("can not find any listener name, this may be normal, because the listener function is optional")
+	if len(scopedlistenerVolumeNamesToListenerName) == 0 {
+		logger.V(1).Info("no scoped listener volumes found in pod, it is normal", "pod", p.getPodName(), "namespace", p.getPodNamespace())
 		return nil, nil
 	}
 
 	addresses := make([]Address, 0)
-	for _, listenerName := range listenerVolumesToListenerName {
+	for _, listenerName := range scopedlistenerVolumeNamesToListenerName {
 		listener, err := p.getListener(ctx, listenerName)
 		if err != nil {
 			return nil, err
@@ -358,8 +379,7 @@ func (p *PodInfo) getListenerAddresses(ctx context.Context) ([]Address, error) {
 		}
 	}
 
-	logger.V(1).Info("get listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
-		"addresses", addresses)
+	logger.V(1).Info("get scoped listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "addresses", addresses)
 	return addresses, nil
 }
 
@@ -374,9 +394,11 @@ func (p *PodInfo) getListener(ctx context.Context, name string) (*operatorlisten
 	return listener, nil
 }
 
-// Check secret listener volume scope has node scope
+// Check the listeners of the secret scope listener-volume is node scope.
+// - get the listeners of the secret scope listener-volume
+// - check if the listeners are node scope
 func (p *PodInfo) HasListenerNodeScope(ctx context.Context) (bool, error) {
-	listenerVolumesToListenerName, err := p.GetListenerVolumeNamesToListenerName(ctx)
+	listenerVolumesToListenerName, err := p.GetScopedListenerVolumeNamesToListenerName(ctx)
 	if err != nil {
 		return false, err
 	}

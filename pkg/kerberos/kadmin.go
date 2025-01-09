@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	kadminLogger = ctrl.Log.WithName("kadmin")
-	mutex        sync.Mutex
+	logger = ctrl.Log.WithName("kadmin")
+	mutex  sync.Mutex
 )
 
 type Kadmin struct {
@@ -60,24 +60,24 @@ func (k *Kadmin) GetAdminKeytabPath() (string, error) {
 
 		keytab, err := os.Create(keytabPath)
 		if err != nil {
-			kadminLogger.Error(err, "Failed to create keytab file")
+			logger.Error(err, "Failed to create keytab file")
 			return "", err
 		}
 
 		if _, err := keytab.Write(k.adminKeytab); err != nil {
-			kadminLogger.Error(err, "Failed to write keytab")
+			logger.Error(err, "Failed to write keytab")
 			return "", err
 		}
 		k.adminKeytabPath = keytab.Name()
 	} else if _, err := os.Stat(k.adminKeytabPath); os.IsNotExist(err) {
 		keytab, err := os.Create(k.adminKeytabPath)
 		if err != nil {
-			kadminLogger.Error(err, "Failed to create keytab file")
+			logger.Error(err, "Failed to create keytab file")
 			return "", err
 		}
 
 		if _, err := keytab.Write(k.adminKeytab); err != nil {
-			kadminLogger.Error(err, "Failed to write keytab")
+			logger.Error(err, "Failed to write keytab")
 			return "", err
 		}
 	}
@@ -98,13 +98,13 @@ func (k *Kadmin) GetAdminKeytabPath() (string, error) {
 func (k *Kadmin) Query(query string) (result string, err error) {
 	krb5Path, err := k.krb5Config.GetTempPath()
 	if err != nil {
-		kadminLogger.Error(err, "Failed to get krb5 path")
+		logger.Error(err, "Failed to get krb5 path")
 		return "", err
 	}
 
 	adminKeytabPath, err := k.GetAdminKeytabPath()
 	if err != nil {
-		kadminLogger.Error(err, "Failed to get admin keytab path")
+		logger.Error(err, "Failed to get admin keytab path")
 		return "", err
 	}
 
@@ -115,13 +115,12 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 	result = string(output)
 
 	if err != nil {
-		kadminLogger.Error(err, "Failed to execute kadmin query", "cmd", cmd.String(), "output", result)
+		logger.Error(err, "Failed to execute kadmin query", "cmd", cmd.String(), "output", result)
 		return "", err
 	}
-	kadminLogger.Info("executed kadmin query", "cmd", cmd.String(), "output", result)
+	logger.V(5).Info("executed kadmin query", "cmd", cmd.String(), "output", result)
 
 	return result, nil
-
 }
 
 // Ktadd generates a keytab file for the given principals
@@ -130,7 +129,7 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 	keytab := path.Join(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+".keytab")
 	defer func() {
 		if err := os.Remove(keytab); err != nil {
-			kadminLogger.Error(err, "Failed to remove keytab")
+			logger.Error(err, "Failed to remove keytab")
 		}
 	}()
 
@@ -145,11 +144,11 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 
 	output, err := k.Query(strings.Join(queries, " "))
 	if err != nil {
-		kadminLogger.Error(err, "Failed to save keytab", "principals", principals, "keytab", keytab)
+		logger.Error(err, "Failed to save keytab", "principals", principals, "keytab", keytab)
 		return nil, err
 	}
 
-	kadminLogger.Info("saved keytab", "principal", principals, "keytab", keytab, "output", output)
+	logger.V(1).Info("saved keytab", "principal", principals, "keytab", keytab, "output", output)
 
 	return os.ReadFile(keytab)
 }
@@ -182,11 +181,10 @@ func (k *Kadmin) AddPrincipal(principal string) error {
 	//
 	output, err := k.Query(strings.Join(queries, " "))
 	if err != nil {
-		kadminLogger.Error(err, "Failed to add principal", "principal", principal)
+		logger.Error(err, "Failed to add principal", "principal", principal)
 		return err
 	}
 
-	kadminLogger.Info("created a new principal", "principal", principal, "output", output)
-
+	logger.V(1).Info("created a new principal", "principal", principal, "output", output)
 	return nil
 }
