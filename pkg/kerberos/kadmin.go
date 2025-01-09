@@ -129,7 +129,7 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 	keytab := path.Join(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+".keytab")
 	defer func() {
-		if err := os.Remove(keytab); err != nil {
+		if err := os.RemoveAll(keytab); err != nil {
 			logger.Error(err, "Failed to remove keytab")
 		}
 	}()
