@@ -127,15 +127,15 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 	// Create a temporary file for the keytab
 	tmpFile, err := os.CreateTemp("", "*.keytab")
 	if err != nil {
-		kadminLogger.Error(err, "Failed to create temporary keytab file")
+		logger.Error(err, "Failed to create temporary keytab file")
 		return nil, err
 	}
 	keytab := tmpFile.Name()
 	defer func() {
 		if closeErr := tmpFile.Close(); closeErr != nil {
-			kadminLogger.Error(closeErr, "Failed to close temporary keytab file")
+			logger.Error(closeErr, "Failed to close temporary keytab file")
 		}
-		if err := os.Remove(keytab); err != nil {
+		if err := os.RemoveAll(keytab); err != nil {
 			logger.Error(err, "Failed to remove keytab")
 		}
 	}()
