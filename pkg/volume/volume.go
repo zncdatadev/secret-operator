@@ -27,6 +27,8 @@ const (
 
 const (
 	// kubernetes and sig defained annotations for PVC
+	CSIStoragePVCName                       string = "csi.storage.k8s.io/pvc/name"
+	CSIStoragePVCNamespace                  string = "csi.storage.k8s.io/pvc/namespace"
 	CSIStoragePodName                       string = "csi.storage.k8s.io/pod.name"
 	CSIStoragePodNamespace                  string = "csi.storage.k8s.io/pod.namespace"
 	CSIStoragePodUid                        string = "csi.storage.k8s.io/pod.uid"

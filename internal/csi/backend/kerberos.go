@@ -2,7 +2,7 @@ package backend
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,12 +54,7 @@ func (k *KerberosBackend) GetSecretData(ctx context.Context) (*util.SecretConten
 
 	krb5Config := k.getKrb5Config().Content()
 
-	return &util.SecretContent{
-		Data: map[string]string{
-			"keytab":    string(keytab),
-			"krb5.conf": krb5Config,
-		},
-	}, nil
+	return &util.SecretContent{Data: map[string]string{"keytab": string(keytab), "krb5.conf": krb5Config}}, nil
 }
 
 func (k *KerberosBackend) provisionKeytab(ctx context.Context) ([]byte, error) {
@@ -67,11 +62,7 @@ func (k *KerberosBackend) provisionKeytab(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	kadmin := kerberos.NewKadmin(
-		k.getKrb5Config(),
-		&k.spec.AdminPrincipal,
-		adminKeytab,
-	)
+	kadmin := kerberos.NewKadmin(k.getKrb5Config(), &k.spec.AdminPrincipal, adminKeytab)
 
 	principals, err := k.getPrincipals(ctx)
 	if err != nil {
@@ -80,14 +71,14 @@ func (k *KerberosBackend) provisionKeytab(ctx context.Context) ([]byte, error) {
 
 	for _, principal := range principals {
 		if err := kadmin.AddPrincipal(principal); err != nil {
-			logger.Error(err, "Failed to add principal", "principal", principal, "kdc", k.spec.KDC)
+			logger.Error(err, "failed to add principal", "principal", principal, "kdc", k.spec.KDC)
 			return nil, err
 		}
 	}
 
 	keytab, err := kadmin.Ktadd(principals...)
 	if err != nil {
-		logger.Error(err, "Failed to create keytab", "principals", principals)
+		logger.Error(err, "failed to provision keytab", "principals", principals)
 		return nil, err
 	}
 
@@ -104,9 +95,9 @@ func (k *KerberosBackend) getAdminKeytab(ctx context.Context) ([]byte, error) {
 	}
 	data := obj.Data["keytab"]
 	if data == nil {
-		return nil, errors.New("could not find keytab data in secret with name " + obj.Name + " in namespace " + obj.Namespace)
+		return nil, fmt.Errorf("could not find keytab data in secret with name %s in namespace %s", obj.Name, obj.Namespace)
 	}
-	logger.V(1).Info("Get kerberos keytab", "name", obj.Name, "namespace", obj.Namespace)
+	logger.V(1).Info("get admin keytab from secret", "name", obj.Name, "namespace", obj.Namespace)
 	return data, nil
 }
 
@@ -127,13 +118,13 @@ func (k *KerberosBackend) getPrincipals(ctx context.Context) ([]string, error) {
 			if hostname != "" {
 				principal := svcName + "/" + hostname + "@" + k.spec.Realm
 				principals = append(principals, principal)
-				logger.V(1).Info("Add principal", "principal", principal)
+				logger.V(1).Info("add principal", "principal", principal)
 			}
 		}
 	}
 
 	if len(principals) == 0 {
-		return nil, errors.New("no principals found")
+		return nil, fmt.Errorf("no principals found for service names %v", svcNames)
 	}
 
 	return principals, nil

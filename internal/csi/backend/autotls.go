@@ -78,17 +78,17 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 
 	certLife := a.volumeContext.AutoTlsCertLifetime
 	if certLife == 0 {
-		logger.Info("Certificate lifetime is not set, using default certificate lifetime", "defaultCertLifeTime", DefaultCertLifeTime)
+		logger.V(1).Info("certificate lifetime is not set, using default certificate lifetime", "defaultCertLifeTime", DefaultCertLifeTime)
 		certLife = DefaultCertLifeTime
 	}
 	restarterBuffer := a.volumeContext.AutoTlsCertRestartBuffer
 	if restarterBuffer == 0 {
-		logger.Info("Certificate restart buffer is not set, using default certificate restart buffer", "defaultCertBuffer", DefaultCertBuffer)
+		logger.V(1).Info("certificate restart buffer is not set, using default certificate restart buffer", "defaultCertBuffer", DefaultCertBuffer)
 		restarterBuffer = DefaultCertBuffer
 	}
 
 	if certLife > a.maxCertificateLifeTime {
-		logger.Info("Certificate lifetime is greater than the maximum certificate lifetime, using the maximum certificate lifetime",
+		logger.V(1).Info("certificate lifetime is greater than the maximum certificate lifetime, using the maximum certificate lifetime",
 			"certLife", certLife,
 			"maxCertificateLifeTime", a.maxCertificateLifeTime,
 		)
@@ -99,7 +99,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 
 	jitterFactorAllowedRange := 0.0 < jitterFactor && jitterFactor < 1.0
 	if !jitterFactorAllowedRange {
-		logger.Info("Invalid jitter factor, using default value", "jitterFactor", jitterFactor)
+		logger.V(1).Info("invalid jitter factor, using default value", "jitterFactor", jitterFactor)
 		jitterFactor = DefaultCertJitter
 	}
 
@@ -107,7 +107,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 	jitterLife := time.Duration(float64(certLife) * jitterFactor)
 	jitteredCertLife := certLife - jitterLife
 
-	logger.Info("Jittered certificate lifetime",
+	logger.V(1).Info("jittered certificate lifetime",
 		"certLife", certLife,
 		"jitteredCertLife", jitteredCertLife,
 		"jitterLife", jitterLife,
@@ -139,7 +139,7 @@ func (a *AutoTlsBackend) certificateConvert(cert *ca.Certificate) (map[string]st
 	trustAnchors := a.certManager.GetTrustAnchors()
 
 	if format == volume.SecretFormatTLSP12 {
-		logger.Info("Converting certificate to PKCS12 format")
+		logger.V(1).Info("Converting certificate to PKCS12 format")
 		password := a.volumeContext.TlsPKCS12Password
 
 		caCerts := make([]*x509.Certificate, 0, len(trustAnchors))
@@ -167,7 +167,7 @@ func (a *AutoTlsBackend) certificateConvert(cert *ca.Certificate) (map[string]st
 		pemCACerts = append(pemCACerts, string(caCert.CertificatePEM()))
 	}
 
-	logger.Info("Converting certificate to PEM format")
+	logger.V(1).Info("converting certificate to PEM format")
 	return map[string]string{
 		PEMTlsCertFileName: string(cert.CertificatePEM()),
 		PEMTlsKeyFileName:  string(cert.PrivateKeyPEM()),
@@ -204,7 +204,7 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		return nil, err
 	}
 
-	logger.Info("Signed certificate", "notAfter", notAfter, "addresses", addresses, "certLife", certLife, "certSerialNumber", cert.SerialNumber())
+	logger.V(1).Info("signed certificate", "notAfter", notAfter, "addresses", addresses, "certLife", certLife, "certSerialNumber", cert.SerialNumber())
 
 	data, err := a.certificateConvert(cert)
 	if err != nil {

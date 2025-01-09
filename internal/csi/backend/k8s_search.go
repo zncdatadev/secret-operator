@@ -66,6 +66,7 @@ func (k *K8sSearchBackend) getSecretList(ctx context.Context, matchingLabels map
 		return nil, err
 	}
 
+	logger.V(1).Info("searching secrets", "namespace", namespace, "matchingLabels", matchingLabels)
 	objs := &corev1.SecretList{}
 	if err := k.client.List(ctx, objs, client.InNamespace(namespace), client.MatchingLabels(matchingLabels)); err != nil {
 		return nil, err
@@ -79,7 +80,7 @@ func (k *K8sSearchBackend) getSecretList(ctx context.Context, matchingLabels map
 	for _, obj := range objs.Items {
 		secretNames = append(secretNames, obj.GetName())
 	}
-	logger.V(1).Info("Found secrets", "total", len(secretNames), "secrets", secretNames)
+	logger.V(1).Info("found secrets", "total", len(secretNames), "secrets", secretNames, "namespace", namespace, "matchingLabels", matchingLabels)
 
 	return objs, nil
 }
@@ -104,7 +105,7 @@ func (k *K8sSearchBackend) matchingLabels(ctx context.Context, hasListenerNodeSc
 		labels[constants.LabelSecretsNode] = pod.Spec.NodeName
 	}
 
-	listenerVolumesToListenerName, err := k.podInfo.GetListenerVolumeNamesToListenerName(ctx)
+	listenerVolumesToListenerName, err := k.podInfo.GetScopedListenerVolumeNamesToListenerName(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +128,7 @@ func (k *K8sSearchBackend) GetQualifiedNodeNames(ctx context.Context) ([]string,
 	}
 
 	if !hasListenerNodeScope {
+		logger.V(1).Info("no listeners in node scope")
 		return nil, nil
 	}
 
@@ -156,7 +158,7 @@ func (k *K8sSearchBackend) GetQualifiedNodeNames(ctx context.Context) ([]string,
 	if err != nil {
 		return nil, err
 	}
-	logger.V(1).Info("Found nodes from secrets with labels when listener node scope is enabled",
+	logger.V(1).Info("found nodes from secrets with labels when listener node scope is enabled",
 		"total", len(ndoes), "nodes", ndoes, "namespace", namespace, "matchingLabels", matchingLabels,
 	)
 	return ndoes, nil
@@ -189,7 +191,7 @@ func (k *K8sSearchBackend) GetSecretData(ctx context.Context) (*util.SecretConte
 	}
 
 	secret := objs.Items[0]
-	logger.V(1).Info("Found secret", "name", secret.GetName())
+	logger.V(1).Info("found secret", "name", secret.GetName(), "namespace", secret.GetNamespace())
 
 	decoded, err := DecodeSecretData(secret.Data)
 	if err != nil {
