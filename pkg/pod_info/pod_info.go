@@ -344,7 +344,8 @@ func (p *PodInfo) getScopedListenerAddresses(ctx context.Context) ([]Address, er
 	// If listener name is empty, then return empty
 	// This situation should be considered normal, because the listener function is optional.
 	if len(scopedlistenerVolumeNamesToListenerName) == 0 {
-		logger.V(1).Info("no scoped listener volumes found in pod, it is normal", "pod", p.getPodName(), "namespace", p.getPodNamespace())
+		logger.V(1).Info("no scoped listener volumes found in pod, it is normal", "pod",
+			p.getPodName(), "namespace", p.getPodNamespace())
 		return nil, nil
 	}
 
@@ -379,7 +380,8 @@ func (p *PodInfo) getScopedListenerAddresses(ctx context.Context) ([]Address, er
 		}
 	}
 
-	logger.V(1).Info("get scoped listener addresses", "pod", p.getPodName(), "namespace", p.getPodNamespace(), "addresses", addresses)
+	logger.V(1).Info("get scoped listener addresses", "pod", p.getPodName(),
+		"namespace", p.getPodNamespace(), "addresses", addresses)
 	return addresses, nil
 }
 
