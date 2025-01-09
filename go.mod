@@ -5,7 +5,6 @@ go 1.23.2
 require (
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/golang/protobuf v1.5.4
-	github.com/google/uuid v1.6.0
 	github.com/kubernetes-csi/csi-lib-utils v0.19.0
 	github.com/zncdatadev/operator-go v0.12.0
 	google.golang.org/grpc v1.69.2
@@ -63,6 +62,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
