@@ -1,11 +1,16 @@
 package kerberos
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -124,17 +129,8 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 // Ktadd generates a keytab file for the given principals
 // Usage: ktadd [-k[eytab] keytab] [-q] [-e keysaltlist] [-norandkey] [principal | -glob princ-exp] [...]
 func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
-	// Create a temporary file for the keytab
-	tmpFile, err := os.CreateTemp("", "*.keytab")
-	if err != nil {
-		logger.Error(err, "Failed to create temporary keytab file")
-		return nil, err
-	}
-	keytab := tmpFile.Name()
+	keytab := path.Join(os.TempDir(), fmt.Sprintf("%s.keytab", uuid.New().String()))
 	defer func() {
-		if closeErr := tmpFile.Close(); closeErr != nil {
-			logger.Error(closeErr, "Failed to close temporary keytab file")
-		}
 		if err := os.RemoveAll(keytab); err != nil {
 			logger.Error(err, "Failed to remove keytab")
 		}
