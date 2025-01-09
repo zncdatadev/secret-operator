@@ -132,7 +132,9 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 	}
 	keytab := tmpFile.Name()
 	defer func() {
-		tmpFile.Close()
+		if closeErr := tmpFile.Close(); closeErr != nil {
+			kadminLogger.Error(closeErr, "Failed to close temporary keytab file")
+		}
 		if err := os.Remove(keytab); err != nil {
 			logger.Error(err, "Failed to remove keytab")
 		}
