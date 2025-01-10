@@ -1,8 +1,6 @@
 package kerberos
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -101,7 +99,7 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 
 	adminKeytabPath, err := k.GetAdminKeytabPath()
 	defer func() {
-		if err := os.Remove(adminKeytabPath); err != nil {
+		if err := os.RemoveAll(adminKeytabPath); err != nil {
 			logger.Error(err, "Failed to remove keytab")
 		}
 	}()
