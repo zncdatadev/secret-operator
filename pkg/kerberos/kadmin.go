@@ -1,8 +1,6 @@
 package kerberos
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"os/exec"
 	"path"
@@ -50,25 +48,22 @@ func (k *Kadmin) GetAdminPrincipal() *string {
 }
 
 // GetAdminKeytabPath returns the path of the admin keytab file.
-// If the admin keytab path is empty, it creates a new temp keytab file and returns its path.
+// If the admin keytab path is empty, use the temporary keytab file.
 // If the admin keytab path already exists, it checks if the file exists and creates a new keytab file if it doesn't.
 // It returns the admin keytab path and any error encountered during the process.
 func (k *Kadmin) GetAdminKeytabPath() (string, error) {
 	if k.adminKeytabPath == "" {
-		hash := sha256.Sum256(k.adminKeytab)
-		keytabPath := os.TempDir() + "/admin-keytab-" + hex.EncodeToString(hash[:])[:23] + ".keytab"
-
-		keytab, err := os.Create(keytabPath)
+		keytabFile, err := os.CreateTemp("", "admin-keytab-*.keytab")
 		if err != nil {
-			logger.Error(err, "Failed to create keytab file")
+			logger.Error(err, "Failed to create temporary keytab file")
 			return "", err
 		}
 
-		if _, err := keytab.Write(k.adminKeytab); err != nil {
+		if _, err := keytabFile.Write(k.adminKeytab); err != nil {
 			logger.Error(err, "Failed to write keytab")
 			return "", err
 		}
-		k.adminKeytabPath = keytab.Name()
+		k.adminKeytabPath = keytabFile.Name()
 	} else if _, err := os.Stat(k.adminKeytabPath); os.IsNotExist(err) {
 		keytab, err := os.Create(k.adminKeytabPath)
 		if err != nil {
@@ -103,6 +98,12 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 	}
 
 	adminKeytabPath, err := k.GetAdminKeytabPath()
+	defer func() {
+		if err := os.Remove(adminKeytabPath); err != nil {
+			logger.Error(err, "Failed to remove keytab")
+		}
+	}()
+
 	if err != nil {
 		logger.Error(err, "Failed to get admin keytab path")
 		return "", err
@@ -128,7 +129,7 @@ func (k *Kadmin) Query(query string) (result string, err error) {
 func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 	keytab := path.Join(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+".keytab")
 	defer func() {
-		if err := os.Remove(keytab); err != nil {
+		if err := os.RemoveAll(keytab); err != nil {
 			logger.Error(err, "Failed to remove keytab")
 		}
 	}()
