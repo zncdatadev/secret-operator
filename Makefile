@@ -278,9 +278,9 @@ endef
 KIND_K8S_VERSION ?= 1.26.15
 CHAINSAW_VERSION ?= v0.2.12
 
-KIND_IMAGE ?= kindest/node:v${KINDTEST_K8S_VERSION}
-KIND_KUBECONFIG ?= ./kind-kubeconfig-$(KINDTEST_K8S_VERSION)
-KIND_CLUSTER_NAME ?= ${PROJECT_NAME}-$(KINDTEST_K8S_VERSION)
+KIND_IMAGE ?= kindest/node:v${KIND_K8S_VERSION}
+KIND_KUBECONFIG ?= ./kind-kubeconfig-$(KIND_K8S_VERSION)
+KIND_CLUSTER_NAME ?= ${PROJECT_NAME}-$(KIND_K8S_VERSION)
 KIND_CONFIG ?= test/e2e/kind-config.yaml
 
 HELM_DEPENDS ?= commons-operator listener-operator
