@@ -7,7 +7,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/kubernetes-csi/csi-lib-utils v0.20.0
-	github.com/zncdatadev/operator-go v0.12.2
+	github.com/zncdatadev/operator-go v0.12.3
 	google.golang.org/grpc v1.70.0
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
