@@ -362,13 +362,14 @@ func (p *PodInfo) getScopedListenerAddresses(ctx context.Context) ([]Address, er
 		}
 
 		for _, ingressAddress := range listener.Status.IngressAddresses {
-			if ingressAddress.AddressType == operatorlistenersv1alpha1.AddressTypeHostname {
+			switch ingressAddress.AddressType {
+			case operatorlistenersv1alpha1.AddressTypeHostname:
 				addresses = append(addresses, Address{
 					Hostname: ingressAddress.Address,
 				})
 				logger.V(1).Info("get listener address", "pod", p.getPodName(), "namespace", p.getPodNamespace(),
 					"listenerName", listenerName, "address", ingressAddress.Address)
-			} else if ingressAddress.AddressType == operatorlistenersv1alpha1.AddressTypeIP {
+			case operatorlistenersv1alpha1.AddressTypeIP:
 				ip := net.ParseIP(ingressAddress.Address)
 				if ip == nil {
 					return nil, fmt.Errorf("invalid listener ip: %s from listener %s", ingressAddress.Address, listenerName)
