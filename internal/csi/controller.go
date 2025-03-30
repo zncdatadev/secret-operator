@@ -171,7 +171,7 @@ func (c *ControllerServer) DeleteVolume(ctx context.Context, request *csi.Delete
 
 func (c *ControllerServer) validateDeleteVolumeRequest(request *csi.DeleteVolumeRequest) error {
 	if request.VolumeId == "" {
-		return fmt.Errorf("Volume ID is required")
+		return fmt.Errorf("volume ID is required")
 	}
 
 	return nil
