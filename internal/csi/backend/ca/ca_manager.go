@@ -12,6 +12,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -115,6 +116,12 @@ func (c *certificateManager) secretCreateIfDoesNotExist(ctx context.Context) err
 
 func (c certificateManager) getPEMKeyPairsFromSecret() ([]PEMkeyPair, error) {
 	var keyPairs []PEMkeyPair
+
+	if len(c.caSecret.Data) == 0 {
+		logger.V(1).Info("secret data is nil", "name", c.caSecret.Name, "namespace", c.caSecret.Namespace)
+		return keyPairs, nil
+	}
+
 	for certName, cert := range c.caSecret.Data {
 		if strings.HasSuffix(certName, ".crt") {
 			privateKeyName := strings.TrimSuffix(certName, ".crt") + ".key"
@@ -444,14 +451,19 @@ func (c *certificateManager) SignClientCertificate(addresses []pod_info.Address,
 }
 
 func getSecret(ctx context.Context, cli client.Client, name, namespace string) (*corev1.Secret, error) {
-	secret := &corev1.Secret{}
-	err := cli.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	err := cli.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 	if err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			return nil, err
 		}
-		logger.V(1).Info("could not find secret", "name", name, "namespace", namespace)
-		return nil, nil
+		logger.V(1).Info("could not find secret, will create a new secret", "name", name, "namespace", namespace)
+		return secret, nil
 	}
 	logger.V(5).Info("found secret", "name", name, "namespace", namespace)
 	return secret, nil
