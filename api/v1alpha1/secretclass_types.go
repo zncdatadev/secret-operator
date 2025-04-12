@@ -36,6 +36,8 @@ type BackendSpec struct {
 
 type AutoTlsSpec struct {
 	// Reference to a ConfigMap or Secret containing the trust root.
+	// When the key suffix is `.crt`, the value is a base64 encoded DER certificate.
+	// When the key suffix is `.der`, the value is a binary DER certificate.
 	// +kubebuilder:validation:Optional
 	AdditionalTrustRoots []AdditionalTrustRootSpec `json:"additionalTrustRoots,omitempty"`
 
@@ -51,11 +53,11 @@ type AutoTlsSpec struct {
 }
 
 type AdditionalTrustRootSpec struct {
-	// Reference to a ConfigMap or Secret containing the trust root.
+	// Reference to a ConfigMap containing the trust root.
 	// +kubebuilder:validation:Optional
 	ConfigMap *ConfigMapSpec `json:"configMap,omitempty"`
 
-	// +kubebuilder:validation:Optional
+	// Reference to a Secret containing the trust root.
 	// +kubebuilder:validation:Optional
 	Secret *SecretSpec `json:"secret,omitempty"`
 }

@@ -3,6 +3,7 @@ package ca
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"slices"
@@ -380,20 +381,20 @@ func (c *certificateManager) getAdditionalTrustRoots(ctx context.Context) ([]*Ce
 
 func (c *certificateManager) processConfigmapDataToCert(data map[string]string, binaryData map[string][]byte) ([]*Certificate, error) {
 	certs := make([]*Certificate, 0, len(data))
-	for _, certPEM := range data {
-		cert, err := x509.ParseCertificate([]byte(certPEM))
+	for key, certPEM := range data {
+		cert, err := c.convertDataToCert(key, []byte(certPEM))
 		if err != nil {
 			return nil, err
 		}
-		certs = append(certs, &Certificate{Certificate: cert})
+		certs = append(certs, cert)
 	}
 
-	for _, certPEM := range binaryData {
-		cert, err := x509.ParseCertificate(certPEM)
+	for key, certPEM := range binaryData {
+		cert, err := c.convertDataToCert(key, certPEM)
 		if err != nil {
 			return nil, err
 		}
-		certs = append(certs, &Certificate{Certificate: cert})
+		certs = append(certs, cert)
 	}
 
 	return certs, nil
@@ -401,14 +402,41 @@ func (c *certificateManager) processConfigmapDataToCert(data map[string]string, 
 
 func (c *certificateManager) processSecretDataToCert(data map[string][]byte) ([]*Certificate, error) {
 	certs := make([]*Certificate, 0, len(data))
-	for _, certPEM := range data {
-		cert, err := x509.ParseCertificate(certPEM)
+	for key, certPEM := range data {
+		cert, err := c.convertDataToCert(key, certPEM)
 		if err != nil {
 			return nil, err
 		}
-		certs = append(certs, &Certificate{Certificate: cert})
+		certs = append(certs, cert)
 	}
 	return certs, nil
+}
+
+// convertDataToCert convert data to cert
+// if the key is suffix with .crt, it will parse the data with base64 encoded DER certificate
+// if the key is suffix with .der, it will parse the data with binary DER certificate
+func (c *certificateManager) convertDataToCert(key string, data []byte) (*Certificate, error) {
+	if strings.HasSuffix(key, ".crt") {
+		// Parse PEM format certificate
+		block, _ := pem.Decode(data)
+		if block == nil {
+			return nil, fmt.Errorf("failed to decode PEM data for key %s", key)
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificate for key %s: %v", key, err)
+		}
+		return &Certificate{Certificate: cert}, nil
+	} else if strings.HasSuffix(key, ".der") {
+		// Parse DER format certificate
+		cert, err := x509.ParseCertificate(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse DER certificate for key %s: %v", key, err)
+		}
+		return &Certificate{Certificate: cert}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported certificate format for key %s, must end with .crt, .pem or .der", key)
 }
 
 // GetTrustAnchors returns the all ca certificates
