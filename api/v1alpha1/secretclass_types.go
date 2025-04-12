@@ -35,8 +35,7 @@ type BackendSpec struct {
 }
 
 type AutoTlsSpec struct {
-
-	// Additional trust roots which are added to the provided `ca.crt` file.
+	// Reference to a ConfigMap or Secret containing the trust root.
 	// +kubebuilder:validation:Optional
 	AdditionalTrustRoots []AdditionalTrustRootSpec `json:"additionalTrustRoots,omitempty"`
 

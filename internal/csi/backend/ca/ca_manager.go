@@ -114,12 +114,12 @@ func (c *certificateManager) secretCreateIfDoesNotExist(ctx context.Context) err
 
 }
 
-func (c certificateManager) getPEMKeyPairsFromSecret() ([]PEMkeyPair, error) {
+func (c certificateManager) getPEMKeyPairsFromSecret() []PEMkeyPair {
 	var keyPairs []PEMkeyPair
 
 	if len(c.caSecret.Data) == 0 {
 		logger.V(1).Info("secret data is nil", "name", c.caSecret.Name, "namespace", c.caSecret.Namespace)
-		return keyPairs, nil
+		return keyPairs
 	}
 
 	for certName, cert := range c.caSecret.Data {
@@ -132,7 +132,7 @@ func (c certificateManager) getPEMKeyPairsFromSecret() ([]PEMkeyPair, error) {
 	}
 
 	logger.V(1).Info("got certificate authorities PEM key pairs from secret", "name", c.caSecret.Name, "namespace", c.caSecret.Namespace, "len", len(keyPairs))
-	return keyPairs, nil
+	return keyPairs
 }
 
 func (c *certificateManager) updateCertificateAuthoritiesToSecret(ctx context.Context, cas []*CertificateAuthority) error {
@@ -315,12 +315,9 @@ func (c *certificateManager) getCertificateAuthority(ctx context.Context) (*Cert
 	caMutex.Lock()
 	defer caMutex.Unlock()
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		pemKeyPairs, err := c.getPEMKeyPairsFromSecret()
-		if err != nil {
-			return err
-		}
+		pemKeyPairs := c.getPEMKeyPairsFromSecret()
 
-		c.cas, err = c.getCertificateAuthorities(pemKeyPairs)
+		cas, err := c.getCertificateAuthorities(pemKeyPairs)
 		if err != nil {
 			return err
 		}
@@ -328,6 +325,8 @@ func (c *certificateManager) getCertificateAuthority(ctx context.Context) (*Cert
 		if len(c.cas) == 0 {
 			return errors.New("certificate authorities is empty")
 		}
+
+		c.cas = cas
 
 		return c.updateCertificateAuthoritiesToSecret(ctx, c.cas)
 	}); err != nil {
@@ -349,7 +348,7 @@ func (c *certificateManager) getAdditionalTrustRoots(ctx context.Context) ([]*Ce
 			return nil, fmt.Errorf("could not find configmap: %s/%s", additionalTrustRoot.ConfigMap.Namespace, additionalTrustRoot.ConfigMap.Name)
 		}
 
-		certs, err := c.processConfigMapDataTocCert(configMap.Data, configMap.BinaryData)
+		certs, err := c.processConfigmapDataToCert(configMap.Data, configMap.BinaryData)
 		if err != nil {
 			return nil, err
 		}
@@ -366,7 +365,7 @@ func (c *certificateManager) getAdditionalTrustRoots(ctx context.Context) ([]*Ce
 			return nil, fmt.Errorf("could not find secret: %s/%s", additionalTrustRoot.Secret.Namespace, additionalTrustRoot.Secret.Name)
 		}
 
-		certs, err = c.processSecretDataTocCert(secret.Data)
+		certs, err = c.processSecretDataToCert(secret.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -379,7 +378,7 @@ func (c *certificateManager) getAdditionalTrustRoots(ctx context.Context) ([]*Ce
 	return additionalTrustRoots, nil
 }
 
-func (c *certificateManager) processConfigMapDataTocCert(data map[string]string, binaryData map[string][]byte) ([]*Certificate, error) {
+func (c *certificateManager) processConfigmapDataToCert(data map[string]string, binaryData map[string][]byte) ([]*Certificate, error) {
 	certs := make([]*Certificate, 0, len(data))
 	for _, certPEM := range data {
 		cert, err := x509.ParseCertificate([]byte(certPEM))
@@ -400,7 +399,7 @@ func (c *certificateManager) processConfigMapDataTocCert(data map[string]string,
 	return certs, nil
 }
 
-func (c *certificateManager) processSecretDataTocCert(data map[string][]byte) ([]*Certificate, error) {
+func (c *certificateManager) processSecretDataToCert(data map[string][]byte) ([]*Certificate, error) {
 	certs := make([]*Certificate, 0, len(data))
 	for _, certPEM := range data {
 		cert, err := x509.ParseCertificate(certPEM)
