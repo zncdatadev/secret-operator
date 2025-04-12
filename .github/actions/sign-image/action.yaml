@@ -27,4 +27,4 @@ runs:
         echo "Signing image: $IMAGE_REF"
 
         # Use cosign to sign the image
-        cosign sign --yes ${IMAGE_REF}
+        cosign sign --yes "${IMAGE_REF}"
