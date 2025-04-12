@@ -436,7 +436,7 @@ func (c *certificateManager) convertDataToCert(key string, data []byte) (*Certif
 		return &Certificate{Certificate: cert}, nil
 	}
 
-	return nil, fmt.Errorf("unsupported certificate format for key %s, must end with .crt, .pem or .der", key)
+	return nil, fmt.Errorf("unsupported certificate format for key %s, must end with .crt or .der", key)
 }
 
 // GetTrustAnchors returns the all ca certificates
