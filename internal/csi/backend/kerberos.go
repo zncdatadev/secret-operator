@@ -35,7 +35,7 @@ func NewKerberosBackend(config *BackendConfig) (IBackend, error) {
 func (k *KerberosBackend) getKrb5Config() *kerberos.Krb5Config {
 	return &kerberos.Krb5Config{
 		Realm:       k.spec.RealmName,
-		AdminServer: k.spec.AdminServer.MIT.KadminServer,
+		AdminServer: k.spec.Admin.MIT.KadminServer,
 		KDC:         k.spec.KDC,
 	}
 }
