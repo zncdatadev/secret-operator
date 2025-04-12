@@ -98,6 +98,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 PLATFORMS ?= linux/arm64,linux/amd64
 CSIDRIVER_IMG ?= ${REGISTRY}/secret-csi-driver:$(VERSION)
+BUILDX_METADATA_FILE ?= docker-digests.json	# The file to store the digests of the images built by buildx
 
 # csi build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
@@ -133,13 +134,10 @@ docker-push: ## Push docker image with the manager.
 # To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' build/Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name $(PROJECT_NAME)-builder
 	$(CONTAINER_TOOL) buildx use $(PROJECT_NAME)-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx rm $(PROJECT_NAME)-builder
-	rm Dockerfile.cross
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} --metadata-file ${BUILDX_METADATA_FILE} -f build/Dockerfile .
+	$(CONTAINER_TOOL) buildx rm $(PROJECT_NAME)-builder
 
 .PHONY: build-installer
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
@@ -169,7 +167,7 @@ csi-docker-push: ## Push docker image with the csi driver.
 csi-docker-buildx: ## Build and push docker image for the csi driver for cross-platform support
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	$(CONTAINER_TOOL) buildx build -f build/csi-driver.Dockerfile --push --platform=$(PLATFORMS) --build-arg LDFLAGS=$(LDFLAGS) --tag ${CSIDRIVER_IMG} .
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} --metadata-file ${BUILDX_METADATA_FILE} --build-arg LDFLAGS=$(LDFLAGS)  -f build/csi-driver.Dockerfile .
 	$(CONTAINER_TOOL) buildx rm project-v3-builder
 
 ##@ Deployment

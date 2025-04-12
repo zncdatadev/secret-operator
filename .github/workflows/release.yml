@@ -7,7 +7,7 @@ on:
 
 
 env:
-  VERSION: ${{ github.ref_name }}
+  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-dev' }}
 
 
 jobs:
@@ -106,6 +106,8 @@ jobs:
     name: Release Image
     if: ${{ github.repository_owner == 'zncdatadev' }}
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for OIDC for cosign to automatically use
     needs:
       - markdown-lint
       - golang-lint
@@ -114,6 +116,9 @@ jobs:
     steps:
       - name: Clone the code
         uses: actions/checkout@v4
+
+      - name: Setup Cosign
+        uses: sigstore/cosign-installer@main
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -130,6 +135,16 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Build and push csi-driver
+      - name: Build and push csi driver
         run: |
           make csi-docker-buildx
+
+      - name: Sign csi image
+        uses: ./.github/actions/sign-image
+
+      - name: Build and push operator
+        run: |
+          make docker-buildx
+
+      - name: Sign operator image
+        uses: ./.github/actions/sign-image
