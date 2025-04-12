@@ -148,3 +148,5 @@ Temporary Items
 kind-kubeconfig*
 
 kind-config-local.yaml
+
+docker-digests.json
