@@ -2,12 +2,14 @@ name: Release
 
 on:
   push:
+    branches:
+      - feat/sign-img
     tags:
       - '*'
 
 
 env:
-  VERSION: ${{ github.ref_name }}
+  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-dev' }}
 
 
 jobs:
@@ -104,8 +106,10 @@ jobs:
 
   release-image:
     name: Release Image
-    if: ${{ github.repository_owner == 'zncdatadev' }}
+    # if: ${{ github.repository_owner == 'zncdatadev' }}
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for OIDC for cosign to automatically use
     needs:
       - markdown-lint
       - golang-lint
@@ -130,6 +134,16 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Build and push csi-driver
+      - name: Build and push csi driver
         run: |
           make csi-docker-buildx
+
+      - name: Sign csi image
+        uses: ./.github/actions/sign-image
+
+      - name: Build and push operator
+        run: |
+          make docker-buildx
+
+      - name: Sign operator image
+        uses: ./.github/actions/sign-image
