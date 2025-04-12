@@ -11,8 +11,8 @@ inputs:
 runs:
   using: composite
   steps:
-
     - name: Sign image
+      shell: bash
       env:
         DIGEST_FILE: ${{ inputs.digest_file }}
       run: |
