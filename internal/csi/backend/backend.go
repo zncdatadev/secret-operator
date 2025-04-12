@@ -26,6 +26,7 @@ const (
 )
 
 type BackendConfig struct {
+	ctx           context.Context
 	Client        client.Client
 	PodInfo       *pod_info.PodInfo
 	VolumeContext *volume.SecretVolumeContext
@@ -47,7 +48,7 @@ func NewBackend(ctx context.Context, c client.Client, podInfo *pod_info.PodInfo,
 		return nil, err
 	}
 
-	config := &BackendConfig{Client: c, PodInfo: podInfo, VolumeContext: volumeCtx, SecretClass: secretClass}
+	config := &BackendConfig{ctx: ctx, Client: c, PodInfo: podInfo, VolumeContext: volumeCtx, SecretClass: secretClass}
 
 	backendType := determineBackendType(config.SecretClass)
 	impl, err := CreateBackend(backendType, config)
