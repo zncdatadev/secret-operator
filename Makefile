@@ -102,6 +102,7 @@ BUILDX_METADATA_FILE ?= docker-digests.json	# The file to store the digests of t
 
 # csi build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
+BUILD_COMMIT := $$(git rev-parse HEAD)
 BUILD_TIME_VAR := $(REPO_PATH)/internal/csi/version.BuildTime
 GIT_COMMIT_VAR := $(REPO_PATH)/internal/csi/version.GitCommit
 BUILD_VERSION_VAR := $(REPO_PATH)/internal/csi/version.BuildVersion

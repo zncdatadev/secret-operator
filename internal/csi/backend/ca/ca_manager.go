@@ -253,7 +253,7 @@ func (c *certificateManager) sort(cas []*CertificateAuthority) {
 // if the certificate authority is about to expire, it will create a new certificate authority
 func (c *certificateManager) rotateCertificateAuthority(cas []*CertificateAuthority) ([]*CertificateAuthority, error) {
 	if len(cas) == 0 {
-		return nil, errors.New("certificate authorities is empty")
+		return nil, errors.New("certificate authorities is empty when rotating certificate authority")
 	}
 
 	// sort certificate authority as ascending
@@ -323,7 +323,7 @@ func (c *certificateManager) getCertificateAuthority(ctx context.Context) (*Cert
 			return err
 		}
 
-		if len(c.cas) == 0 {
+		if len(cas) == 0 {
 			return errors.New("certificate authorities is empty")
 		}
 
