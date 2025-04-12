@@ -5,7 +5,9 @@ type KerberosKeytabSpec struct {
 	AdminPrincipal    string            `json:"adminPrincipal"`
 	AdminKeytabSecret *KeytabSecretSpec `json:"adminKeytabSecret"`
 	KDC               string            `json:"kdc"`
-	Realm             string            `json:"realm"`
+
+	// +kubebuilder:validation:Pattern=`^[-.a-zA-Z0-9]+$`
+	RealmName string `json:"realmName"`
 }
 
 type KeytabSecretSpec struct {
@@ -18,7 +20,6 @@ type KeytabSecretSpec struct {
 type AdminServerSpec struct {
 	MIT *MITSpec `json:"mit"`
 
-	// openldap
 	// MS-AD
 }
 
