@@ -34,7 +34,7 @@ func NewKerberosBackend(config *BackendConfig) (IBackend, error) {
 
 func (k *KerberosBackend) getKrb5Config() *kerberos.Krb5Config {
 	return &kerberos.Krb5Config{
-		Realm:       k.spec.Realm,
+		Realm:       k.spec.RealmName,
 		AdminServer: k.spec.AdminServer.MIT.KadminServer,
 		KDC:         k.spec.KDC,
 	}
@@ -116,7 +116,7 @@ func (k *KerberosBackend) getPrincipals(ctx context.Context) ([]string, error) {
 			hostname := addr.Hostname
 			// only support FQDN
 			if hostname != "" {
-				principal := svcName + "/" + hostname + "@" + k.spec.Realm
+				principal := svcName + "/" + hostname + "@" + k.spec.RealmName
 				principals = append(principals, principal)
 				logger.V(1).Info("add principal", "principal", principal)
 			}
