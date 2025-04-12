@@ -94,7 +94,7 @@ type KeyGenerationSpec struct {
 
 type RSASpec struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=2048;3072;409
+	// +kubebuilder:validation:Enum=2048;3072;4096
 	Length int `json:"length"`
 }
 
