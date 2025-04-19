@@ -15,7 +15,7 @@ RUN go mod download
 # Copy the go source
 COPY cmd/csi_driver/main.go cmd/csi_driver/main.go
 COPY api/ api/
-COPY internal/csi/ internal/csi/
+COPY internal/ internal/
 COPY pkg/ pkg/
 
 # Build
