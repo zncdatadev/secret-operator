@@ -23,7 +23,7 @@ import (
 	"os"
 
 	"github.com/zncdatadev/secret-operator/internal/csi"
-	"github.com/zncdatadev/secret-operator/internal/csi/version"
+	"github.com/zncdatadev/secret-operator/internal/util/version"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -72,7 +72,9 @@ func main() {
 	flag.Parse()
 
 	if *versionInfo {
-		showVersion()
+		version := version.NewAppInfo(*driverName).String()
+		fmt.Println(version)
+		os.Exit(0)
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -123,15 +125,4 @@ func runDriver(ctx context.Context, mgr ctrl.Manager) {
 		fmt.Println("Failed to run driver", "error", err.Error())
 		os.Exit(1)
 	}
-}
-
-func showVersion() {
-
-	info, err := version.GetVersionYAML(*driverName)
-	if err != nil {
-		fmt.Println("Failed to get driver information")
-		os.Exit(1)
-	}
-	fmt.Println(info)
-	os.Exit(0)
 }

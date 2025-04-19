@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/zncdatadev/secret-operator/internal/csi/version"
+	"github.com/zncdatadev/secret-operator/internal/util/version"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,7 +47,7 @@ func NewDriver(
 
 func (d *Driver) Run(ctx context.Context, testMode bool) error {
 
-	logger.V(1).Info("driver information", "versionInfo", version.GetVersion(d.name))
+	logger.V(1).Info("driver information", "versionInfo", version.NewAppInfo(d.name).String())
 
 	// check node id
 	if d.nodeID == "" {
