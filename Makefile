@@ -5,9 +5,12 @@ ENVTEST_K8S_VERSION = 1.26.1
 
 REGISTRY ?= quay.io/zncdatadev
 PROJECT_NAME = secret-operator
-REPO_PATH = $(REGISTRY)/$(PROJECT_NAME)
 # Image URL to use all building/pushing image targets
 IMG ?= $(REGISTRY)/$(PROJECT_NAME):$(VERSION)
+
+# Build variables
+BUILD_TIMESTAMP ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+BUILD_COMMIT ?= $(shell git rev-parse HEAD)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -100,13 +103,9 @@ PLATFORMS ?= linux/arm64,linux/amd64
 CSIDRIVER_IMG ?= ${REGISTRY}/secret-csi-driver:$(VERSION)
 BUILDX_METADATA_FILE ?= docker-digests.json	# The file to store the digests of the images built by buildx
 
-# csi build variables
-BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
-BUILD_COMMIT := $$(git rev-parse HEAD)
-BUILD_TIME_VAR := $(REPO_PATH)/internal/csi/version.BuildTime
-GIT_COMMIT_VAR := $(REPO_PATH)/internal/csi/version.GitCommit
-BUILD_VERSION_VAR := $(REPO_PATH)/internal/csi/version.BuildVersion
-LDFLAGS ?= "-X $(BUILD_TIME_VAR)=$(BUILD_TIMESTAMP) -X $(GIT_COMMIT_VAR)=$(BUILD_COMMIT) -X $(BUILD_VERSION_VAR)=$(VERSION)"
+LDFLAGS = "-X github.com/zncdatadev/$(PROJECT_NAME)/internal/util/version.BuildVersion=$(VERSION) \
+	-X github.com/zncdatadev/$(PROJECT_NAME)/internal/util/version.GitCommit=$(BUILD_COMMIT) \
+	-X github.com/zncdatadev/$(PROJECT_NAME)/internal/util/version.BuildTime=$(BUILD_TIMESTAMP)"
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
@@ -150,7 +149,7 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 
 .PHONY: csi-build
 csi-build: ## Build csi driver.
-	go build -a -ldflags $(LDFLAGS) -o bin/csi-driver cmd/csi_driver/main.go
+	go build -ldflags $(LDFLAGS) -o bin/csi-driver cmd/csi_driver/main.go
 
 .PHONY: csi-run
 csi-run: ## Run csi driver.
