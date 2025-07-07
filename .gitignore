@@ -149,3 +149,7 @@ kind-kubeconfig*
 kind-config-local.yaml
 
 docker-digests.json
+
+# helm charts
+# helm package directory
+target

@@ -1,9 +1,15 @@
 
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+# VERSION refers to the application version.
 VERSION ?= 0.0.0-dev
-ENVTEST_K8S_VERSION = 1.26.1
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+# The version only effects unit tests.
+# You can find the list of released envtest-k8s versions with `Release envtest` from https://github.com/kubernetes-sigs/controller-tools/releases
+ENVTEST_K8S_VERSION = 1.32.0
 
+# REGISTRY refers to the container registry where the image will be pushed.
 REGISTRY ?= quay.io/zncdatadev
+# OCI_REGISTRY refers to the OCI registry where the helm chart will be pushed.
+OCI_REGISTRY ?= oci://quay.io/kubedoopcharts
 PROJECT_NAME = secret-operator
 # Image URL to use all building/pushing image targets
 IMG ?= $(REGISTRY)/$(PROJECT_NAME):$(VERSION)
@@ -169,6 +175,17 @@ csi-docker-buildx: ## Build and push docker image for the csi driver for cross-p
 	$(CONTAINER_TOOL) buildx use project-v3-builder
 	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} --metadata-file ${BUILDX_METADATA_FILE} --build-arg LDFLAGS=$(LDFLAGS)  -f build/csi-driver.Dockerfile .
 	$(CONTAINER_TOOL) buildx rm project-v3-builder
+
+.PHONY: chart ## Generate helm chart for the operator.
+chart: manifests kustomize ## Generate helm chart for the operator.
+	$(KUSTOMIZE) build config/crd > deploy/helm/$(PROJECT_NAME)/crds/crds.yaml
+
+.PHONY: chart-publish ## Publish helm chart for the operator.
+chart-publish: helm chart ## Publish helm chart for the operator.
+	mkdir -p target/charts
+	$(HELM) package deploy/helm/$(PROJECT_NAME) --version $(VERSION) --app-version $(VERSION) --destination target/charts
+	$(HELM) push target/charts/$(PROJECT_NAME)-$(VERSION).tgz $(OCI_REGISTRY)
+
 
 ##@ Deployment
 

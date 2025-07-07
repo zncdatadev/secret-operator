@@ -14,24 +14,12 @@ together seamlessly. Based on Kubernetes, it runs everywhere – on prem or in t
 
 ## Quick Start
 
-### Add helm repository
+### Install Kubedoop Secret Operator
 
 > Please make sure helm version is v3.0.0+
 
 ```bash
-helm repo add kubedoop https://zncdatadev.github.io/kubedoop-helm-charts/
-```
-
-### Add required dependencies
-
-```bash
-helm install listener-operator kubedoop/listener-operator
-```
-
-### Add secret-operator
-
-```bash
-helm install secret-operator kubedoop/secret-operator
+helm install secret-operator oci://quay.io/kubedoopcharts/secret-operator
 ```
 
 ### Deploy secret operator
