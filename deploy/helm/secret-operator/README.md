@@ -19,9 +19,7 @@ please use `kubectl` to upgrade CRDs manually from [templates/crds](templates/cr
 To install the chart with the release name `secret-operator`:
 
 ```bash
-helm repo add kubedoop https://zncdatadev.github.io/kubedoop-helm-charts/
-
-helm install secret-operator kubedoop/secret-operator
+helm install secret-operator oci://quay.io/kubedoopcharts/secret-operator
 ```
 
 ## Usage
