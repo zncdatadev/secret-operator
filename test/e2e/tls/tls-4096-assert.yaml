@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: tls-p12
+  name: tls-4096
 status:
   phase: Succeeded
   containerStatuses:

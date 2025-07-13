@@ -69,13 +69,15 @@ func (c *Certificate) KeyStoreP12(password string, caCerts []*x509.Certificate) 
 }
 
 type CertificateAuthority struct {
-	Certificate *x509.Certificate
-	privateKey  *rsa.PrivateKey
+	Certificate  *x509.Certificate
+	privateKey   *rsa.PrivateKey
+	rsaKeyLength int
 }
 
 func NewCertificateAuthorityFromData(
 	certPEM []byte,
 	keyPEM []byte,
+	rsaKeyLength int,
 ) (*CertificateAuthority, error) {
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 
@@ -90,19 +92,21 @@ func NewCertificateAuthorityFromData(
 
 	return NewCertificateAuthority(
 		&Certificate{Certificate: x509Cert, privateKey: tlsCert.PrivateKey.(*rsa.PrivateKey)},
+		rsaKeyLength,
 	)
 }
 
 // NewCertificateAuthorityFromSecret creates a new CertificateAuthority from a secret
-func NewCertificateAuthority(ca *Certificate) (*CertificateAuthority, error) {
+func NewCertificateAuthority(ca *Certificate, rsaKeyLength int) (*CertificateAuthority, error) {
 	// check cert is a CA
 	if !ca.Certificate.IsCA {
 		return nil, errors.New("root certificate is not a CA")
 	}
 
 	return &CertificateAuthority{
-		Certificate: ca.Certificate,
-		privateKey:  ca.privateKey,
+		Certificate:  ca.Certificate,
+		privateKey:   ca.privateKey,
+		rsaKeyLength: rsaKeyLength,
 	}, nil
 }
 
@@ -130,8 +134,8 @@ func (c *CertificateAuthority) SignCertificate(
 	extKeyUsage []x509.ExtKeyUsage,
 	notAfter time.Time,
 ) (*Certificate, error) {
-	// Generate a new private key
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	// Generate a new private key with the configured RSA key length
+	privateKey, err := rsa.GenerateKey(rand.Reader, c.rsaKeyLength)
 	if err != nil {
 		return nil, err
 	}
@@ -225,18 +229,18 @@ func (c *CertificateAuthority) SignClientCertificate(
 }
 
 func (c *CertificateAuthority) Rotate(notAfter time.Time) (*CertificateAuthority, error) {
-	newCA, err := NewSelfSignedCertificateAuthority(notAfter, c.Certificate, c.privateKey)
+	newCA, err := NewSelfSignedCertificateAuthority(notAfter, c.Certificate, c.privateKey, c.rsaKeyLength)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.V(1).Info("rotated certificate authority", "notAfter", newCA.Certificate.NotAfter, "newSerialNumber", newCA.SerialNumber(), "currentSerialNumber", c.SerialNumber())
+	logger.V(1).Info("rotated certificate authority", "notAfter", newCA.Certificate.NotAfter, "newSerialNumber", newCA.SerialNumber(), "currentSerialNumber", c.SerialNumber(), "rsaKeyLength", c.rsaKeyLength)
 	return newCA, nil
 }
 
-func NewSelfSignedCertificateAuthority(expeiry time.Time, parent *x509.Certificate, parentPrivateKey *rsa.PrivateKey) (*CertificateAuthority, error) {
+func NewSelfSignedCertificateAuthority(expeiry time.Time, parent *x509.Certificate, parentPrivateKey *rsa.PrivateKey, rsaKeyLength int) (*CertificateAuthority, error) {
 	// Generate a new private key
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	privateKey, err := rsa.GenerateKey(rand.Reader, rsaKeyLength)
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +296,7 @@ func NewSelfSignedCertificateAuthority(expeiry time.Time, parent *x509.Certifica
 
 	return NewCertificateAuthority(
 		&Certificate{Certificate: cert, privateKey: privateKey},
+		rsaKeyLength,
 	)
 }
 

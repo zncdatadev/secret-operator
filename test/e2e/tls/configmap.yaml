@@ -1,0 +1,139 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: checker-scripts
+data:
+  tls_rsa_length_checker.sh: |
+    #!/bin/bash
+    # Check if the RSA key length is as expected
+    # Returns:
+    #   0: success
+    #   1: fail
+
+    EXPECTED_RSA_LENGTH=${EXPECTED_RSA_LENGTH:-2048}
+
+    # Check if /kubedoop/tls/tls.key exists
+    if [ ! -f /kubedoop/tls/tls.key ]; then
+      echo "/kubedoop/tls/tls.key does not exist" >&2
+      exit 1
+    fi
+
+    # Get the actual RSA key length
+    # First try to determine if it's RSA, EC, or other key type
+    # example output for RSA: `RSA Private-Key: (2048 bit, 2 primes)`
+    # example output for EC: `Private-Key: (256 bit)`
+    KEY_INFO=$(openssl pkey -in /kubedoop/tls/tls.key -text -noout 2>/dev/null)
+    if [ $? -ne 0 ]; then
+      echo "Failed to read private key" >&2
+      exit 1
+    fi
+
+    # Extract bit length from either RSA or EC key format
+    ACTUAL_RSA_LENGTH=$(echo "$KEY_INFO" | grep -E "(RSA )?Private-Key:" | sed -E 's/.*\(([0-9]+) bit.*/\1/')
+
+    # Validate that we got a numeric value
+    if ! [[ "$ACTUAL_RSA_LENGTH" =~ ^[0-9]+$ ]]; then
+      echo "Failed to extract key length from private key" >&2
+      echo "Key info: $KEY_INFO" >&2
+      exit 1
+    fi
+
+    if [ "$ACTUAL_RSA_LENGTH" -ne "$EXPECTED_RSA_LENGTH" ]; then
+      echo "Expected RSA length: $EXPECTED_RSA_LENGTH, but got: $ACTUAL_RSA_LENGTH" >&2
+      exit 1
+    fi
+
+    echo "RSA key length check passed."
+    exit 0
+  tls_scope_checker.sh: |
+    # check tls.crt san has secret scope value
+    # Arguments:
+    # Returns:
+    #   0: success
+    #   1: fail
+    function checkTLSSAN () {
+      # check /kubedoop/tls/tls.crt exists
+      if [ ! -f /kubedoop/tls/tls.crt ]; then
+        echo "/kubedoop/tls/tls.crt does not exist" >&2
+        return 1
+      fi
+
+      # Tls SAN check
+      # X509v3 Subject Alternative Name: critical
+      #     DNS:secret-operator-1.26.15-control-plane, DNS:tls-scope-https.default.svc.cluster.local, DNS:tls-scope-74c794dc64-88mh8-tls-scope-listener-eph-volume.default.svc.cluster.local, IP Address:172.18.0.2
+      tls_san=$(openssl x509 -in /kubedoop/tls/tls.crt -noout -text | grep -A 1 "Subject Alternative Name")
+      echo "tls_san: \n$tls_san\n" >&2
+
+      # check tls_san container some value
+      svc_san="tls-scope-https.$NAMESPACE.svc.cluster.local"
+      listener_san="tls-scope-listener-eph-volume.$NAMESPACE.svc.cluster.local"
+      check_lists=($svc_san $listener_san)
+
+      for check in ${check_lists[@]}; do
+        if [[ $tls_san != *$check* ]]; then
+          echo "tls_san does not contain $check" >&2
+          return 1
+        fi
+      done
+
+      return 0
+    }
+
+    # Continuous check with 10 seconds interval until the function returns 0
+    while true; do
+      checkTLSSAN
+      if [ $? -eq 0 ]; then
+        echo "tls_san check success"
+        break
+      fi
+      sleep 10
+    done
+
+    # save assert result success to /tmp/assert
+    echo "success" > /tmp/assert
+    sleep infinity
+  tls_pkcs12_checker.sh: |
+    KEYSTORE_FILE=/kubedoop/tls/keystore.p12
+    TRUSTSTORE_FILE=/kubedoop/tls/truststore.p12
+    SERVER_PEM_FILE=/kubedoop/tls/server.pem
+
+    # Arguments:
+    # Returns:
+    #   0: success
+    #   1: fail
+    function checkTLSPKCS12 () {
+      # Check if keystore and truststore exist
+      if [ ! -f $KEYSTORE_FILE ] || [ ! -f $TRUSTSTORE_FILE ]; then
+        echo "Keystore or truststore does not exist." >&2
+        return 1
+      fi
+
+      # Check if keystore contains more than 0 entries
+      entryCount=$(keytool -list -keystore $KEYSTORE_FILE -storepass $P12PASSWORD | grep 'Your keystore contains' | awk '{print $4}')
+      if [ $entryCount -gt 0 ]; then
+          echo "Keystore contains more than 0 entries." >&2
+      else
+          echo "Keystore contains 0 entries." >&2
+          return 1
+      fi
+
+      openssl pkcs12 -in "$KEYSTORE_FILE" -passin pass:"$P12PASSWORD" -nokeys -clcerts -out "$SERVER_PEM_FILE"
+
+      # Check server certificate in keystore is not expired, default is 60 * 60 * 24 * 7 seconds
+      EXPIRESLIFE=$((23 * 60 * 60)) # 23 hours
+      if ! openssl x509 -checkend $EXPIRESLIFE -noout -in "$SERVER_PEM_FILE"; then
+        echo "Server certificate in keystore is expired within $EXPIRESLIFE ." >&2
+        return 1
+      fi
+
+      echo "All checks passed." >&2
+      return 0
+    }
+
+    # Continuous check with 10 seconds interval until the function returns 0
+    while true; do
+      if checkTLSPKCS12; then
+        break
+      fi
+      sleep 10
+    done
