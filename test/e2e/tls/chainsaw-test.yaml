@@ -7,6 +7,20 @@ spec:
     # tls smoke test case with pkcs12
     - try:
       - apply:
+          file: secretclass-4096.yaml
+      - apply:
+          file: configmap.yaml
+    - try:
+      - apply:
+          file: tls-2048.yaml
+      - assert:
+          file: tls-2048-assert.yaml
+      - apply:
+          file: tls-4096.yaml
+      - assert:
+          file: tls-4096-assert.yaml
+    - try:
+      - apply:
           file: tls-pkcs12.yaml
       - assert:
           file: tls-pkcs12-assert.yaml

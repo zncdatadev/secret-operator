@@ -59,6 +59,12 @@ func NewAutoTlsBackend(config *BackendConfig) (IBackend, error) {
 		return nil, err
 	}
 
+	// get RSA key length from CA spec, default to 2048 if not specified
+	rsaKeyLength := 2048
+	if autotls.CA.KeyGeneration != nil && autotls.CA.KeyGeneration.RSA != nil {
+		rsaKeyLength = autotls.CA.KeyGeneration.RSA.Length
+	}
+
 	certManager, err := ca.NewCertificateManager(
 		config.ctx,
 		config.Client,
@@ -67,6 +73,7 @@ func NewAutoTlsBackend(config *BackendConfig) (IBackend, error) {
 		autotls.CA.AutoGenerate,
 		autotls.CA.Secret,
 		autotls.AdditionalTrustRoots,
+		rsaKeyLength,
 	)
 	if err != nil {
 		return nil, err

@@ -1,25 +1,23 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: tls-p12
+  name: tls-4096
   labels:
-    app.kubernetes.io/name: tls-p12
+    app.kubernetes.io/name: tls-4096
 spec:
   restartPolicy: Never
   containers:
   - name: main
     image: quay.io/zncdatadev/testing-tools:0.1.0-kubedoop0.0.0-dev
     env:
-    - name: POD_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
     - name: P12PASSWORD
       value: changeit
+    - name: EXPECTED_RSA_LENGTH
+      value: "4096"  # Can be changed to test different RSA key lengths
     command:
     - /bin/bash
     - -c
-    - /kubedoop/scripts/tls_pkcs12_checker.sh
+    - /kubedoop/scripts/tls_rsa_length_checker.sh
     resources:
       limits:
         memory: "128Mi"
@@ -39,10 +37,7 @@ spec:
       volumeClaimTemplate:
         metadata:
           annotations:
-            secrets.kubedoop.dev/class: tls
-            secrets.kubedoop.dev/format: tls-p12
-            secrets.kubedoop.dev/scope: pod,node
-            secrets.kubedoop.dev/tlsPKCS12Password: changeit
+            secrets.kubedoop.dev/class: tls-4096
         spec:
           accessModes: ["ReadWriteOnce"]
           storageClassName: secrets.kubedoop.dev

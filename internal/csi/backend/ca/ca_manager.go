@@ -41,6 +41,7 @@ type certificateManager struct {
 	caCertificateLifetime  time.Duration
 	auto                   bool
 	additionalTrustRoots   []secretsv1alpha1.AdditionalTrustRootSpec
+	rsaKeyLength           int
 
 	caSecret *corev1.Secret
 
@@ -62,6 +63,7 @@ func NewCertificateManager(
 	auto bool,
 	caSecretSpec *secretsv1alpha1.SecretSpec,
 	additionalTrustRoots []secretsv1alpha1.AdditionalTrustRootSpec,
+	rsaKeyLength int,
 
 ) (CertificateManager, error) {
 
@@ -76,6 +78,7 @@ func NewCertificateManager(
 		auto:                  auto,
 		caSecret:              caSecret,
 		cas:                   []*CertificateAuthority{},
+		rsaKeyLength:          rsaKeyLength,
 	}
 
 	ca, err := cm.getCertificateAuthority(ctx)
@@ -180,7 +183,7 @@ func (c *certificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair)
 	cas := make([]*CertificateAuthority, 0)
 
 	for _, keyPair := range pemKeyPairs {
-		ca, err := NewCertificateAuthorityFromData(keyPair.CertPEMBlock, keyPair.KeyPEMBlock)
+		ca, err := NewCertificateAuthorityFromData(keyPair.CertPEMBlock, keyPair.KeyPEMBlock, c.rsaKeyLength)
 		if err != nil {
 			return nil, err
 		}
@@ -225,11 +228,11 @@ func (c *certificateManager) getCertificateAuthorities(pemKeyPairs []PEMkeyPair)
 // create a new self-signed certificate authority only no certificate authority is found
 func (c *certificateManager) createSelfSignedCertificateAuthority() (*CertificateAuthority, error) {
 	notAfter := time.Now().Add(c.caCertificateLifetime)
-	ca, err := NewSelfSignedCertificateAuthority(notAfter, nil, nil)
+	ca, err := NewSelfSignedCertificateAuthority(notAfter, nil, nil, c.rsaKeyLength)
 	if err != nil {
 		return nil, err
 	}
-	logger.V(1).Info("created new self-signed certificate authority", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter)
+	logger.V(1).Info("created new self-signed certificate authority", "serialNumber", ca.SerialNumber(), "notAfter", ca.Certificate.NotAfter, "rsaKeyLength", c.rsaKeyLength)
 	return ca, nil
 }
 
