@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -28,22 +30,26 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	listenerv1alpha1 "github.com/zncdatadev/operator-go/pkg/apis/listeners/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
+	secretv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	"github.com/zncdatadev/secret-operator/internal/controller"
+	"github.com/zncdatadev/secret-operator/internal/util/version"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
 	scheme               = runtime.NewScheme()
 	setupLog             = ctrl.Log.WithName("setup")
+	endpoint             = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	metricsAddr          = flag.String("metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	probeAddr            = flag.String("health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	enableLeaderElection = flag.Bool("leader-elect", false,
@@ -54,23 +60,31 @@ var (
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	enableHTTP2 = flag.Bool("enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	versionInfo = flag.Bool("version", false, "Prints the version information")
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(secretsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(listenerv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(secretv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-
 	opts := zap.Options{
 		Development: true,
 	}
 
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if *versionInfo {
+		version := version.NewAppInfo(controller.DefaultControllerName).String()
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -158,8 +172,25 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
+	go runMgr(ctx, mgr)
+	runCsiController(ctx, mgr.GetClient())
+}
+
+func runMgr(ctx context.Context, mgr ctrl.Manager) {
+	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func runCsiController(ctx context.Context, client client.Client) {
+	setupLog.Info("starting csi controller")
+	controller := controller.NewCsiController(*endpoint, client)
+
+	err := controller.Run(ctx)
+	if err != nil {
+		fmt.Println("Failed to run csi controller", "error", err.Error())
 		os.Exit(1)
 	}
 }
