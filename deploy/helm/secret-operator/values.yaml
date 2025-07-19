@@ -33,7 +33,7 @@ csiController:
   #   pullPolicy: IfNotPresent
   logLevel: 2
   # Number of controller replicas
-  replicas: 2
+  replicas: 1
   # Resources of the CSI controller container
   resources:
     requests:

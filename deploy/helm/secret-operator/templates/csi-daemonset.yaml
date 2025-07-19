@@ -27,17 +27,15 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ include "operator.appname" . }}-node
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          {{ if .Values.csiNode.image }}
+          {{- if .Values.csiNode.image }}
           image: "{{ .Values.csiNode.image.repository }}:{{ .Values.csiNode.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.csiNode.image.pullPolicy }}
           {{ else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{ end }}
+          {{- end }}
           resources:
-            {{ .Values.csiNode.resources | toYaml | nindent 12 }}
+            {{- .Values.csiNode.resources | toYaml | nindent 12 }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
@@ -66,20 +64,18 @@ spec:
             timeoutSeconds: 3
             periodSeconds: 5
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.csiNode.securityContext | nindent 12 }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
             - name: mountpoint-dir
               mountPath: {{ .Values.kubeletDir }}/pods
-              {{- if .Values.securityContext.privileged }}
               mountPropagation: Bidirectional
-              {{- end }}
         - name: node-driver-registrar
           image: "{{ .Values.csiNodeDriverRegistrar.image.repository }}:{{ .Values.csiNodeDriverRegistrar.image.tag }}"
           imagePullPolicy: {{ .Values.csiNodeDriverRegistrar.image.pullPolicy }}
           resources:
-            {{ .Values.csiNodeDriverRegistrar.resources | toYaml | nindent 12 }}
+            {{- .Values.csiNodeDriverRegistrar.resources | toYaml | nindent 12 }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
@@ -101,14 +97,14 @@ spec:
           image: "{{ .Values.livenessProbe.image.repository }}:{{ .Values.livenessProbe.image.tag }}"
           imagePullPolicy: {{ .Values.livenessProbe.image.pullPolicy }}
           resources:
-            {{ .Values.livenessProbe.resources | toYaml | nindent 12 }}
+            {{- .Values.livenessProbe.resources | toYaml | nindent 12 }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
           args:
             - --csi-address=$(ADDRESS)
             - --health-port=9808
-            - --timeout=3s
+            - --probe-timeout=3s
             - --v={{ .Values.livenessProbe.logLevel | default 2 }}
           ports:
             - containerPort: 9808
