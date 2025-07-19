@@ -72,7 +72,10 @@ func (d *Driver) Run(ctx context.Context) error {
 		d.server.Stop()
 	}()
 
-	d.server.Wait()
+	if err := d.server.Wait(); err != nil {
+		logger.Error(err, "error while waiting for server to finish")
+		return err
+	}
 	logger.Info("csi driver stopped")
 	return nil
 }

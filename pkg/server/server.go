@@ -153,7 +153,11 @@ func (s *server) RegisterServiceFunc(registerFunc func(server *grpc.Server)) {
 	s.logger.V(1).Info("service registered", "endpoint", s.endpoint)
 }
 
-func (s *server) RegisterService(nodeServer csi.NodeServer, identityServer csi.IdentityServer, controllerServer csi.ControllerServer) {
+func (s *server) RegisterService(
+	nodeServer csi.NodeServer,
+	identityServer csi.IdentityServer,
+	controllerServer csi.ControllerServer,
+) {
 	if s.server == nil {
 		s.logger.Error(fmt.Errorf("server is not initialized"), "failed to register service")
 		return
