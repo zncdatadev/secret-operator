@@ -55,12 +55,12 @@ func (d *Driver) Run(ctx context.Context) error {
 		return errors.New("NodeID is not provided")
 	}
 
+	cs := NewControllerServer(d.client)
 	ns := NewNodeServer(d.nodeID, mount.New("secret-csi"), d.client)
-
 	is := NewIdentityServer(d.name, version.BuildVersion)
 
 	// Register the services with the gRPC server
-	d.server.RegisterService(ns, is, nil)
+	d.server.RegisterService(ns, is, cs)
 
 	if err := d.server.Start(ctx); err != nil {
 		return err

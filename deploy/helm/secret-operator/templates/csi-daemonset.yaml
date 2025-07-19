@@ -2,13 +2,13 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "operator.fullname" . }}-daemonset
+  name: {{ include "operator.fullname" . }}-csi-node
   labels:
     {{- include "operator.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "operator.selectorLabels" . | nindent 6 }}
+      {{- include "operator.selectorLabelsCSINode" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -16,7 +16,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "operator.selectorLabels" . | nindent 8 }}
+        {{- include "operator.selectorLabelsCSINode" . | nindent 8 }}
     spec:
       {{- with .Values.image.pullSecrets }}
       imagePullSecrets:
@@ -26,13 +26,18 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ include "operator.appname" . }}
+        - name: {{ include "operator.appname" . }}-node
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          {{ if .Values.csiNode.image }}
+          image: "{{ .Values.csiNode.image.repository }}:{{ .Values.csiNode.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.csiNode.image.pullPolicy }}
+          {{ else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{ end }}
           resources:
-            {{ .Values.csiDriver.resources | toYaml | nindent 12 }}
+            {{ .Values.csiNode.resources | toYaml | nindent 12 }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
@@ -42,8 +47,9 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           args:
-            - "-endpoint=$(ADDRESS)"
-            - "-nodeid=$(NODE_NAME)"
+            - -endpoint=$(ADDRESS)
+            - -nodeid=$(NODE_NAME)
+            - -zap-log-level={{ .Values.csiNode.logLevel | default 2 }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -59,29 +65,16 @@ spec:
             initialDelaySeconds: 5
             timeoutSeconds: 3
             periodSeconds: 5
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           volumeMounts:
-            - name: plugin-dir
+            - name: socket-dir
               mountPath: /csi
             - name: mountpoint-dir
               mountPath: {{ .Values.kubeletDir }}/pods
               {{- if .Values.securityContext.privileged }}
               mountPropagation: Bidirectional
               {{- end }}
-        - name: csi-provisioner
-          image: "{{ .Values.csiProvisioner.image.repository }}:{{ .Values.csiProvisioner.image.tag }}"
-          imagePullPolicy: {{ .Values.csiProvisioner.image.pullPolicy }}
-          resources:
-            {{ .Values.csiProvisioner.resources | toYaml | nindent 12 }}
-          env:
-            - name: ADDRESS
-              value: unix:///csi/csi.sock
-          args:
-            - --csi-address=$(ADDRESS)
-            - --feature-gates=Topology=true
-            - --extra-create-metadata
-          volumeMounts:
-            - name: plugin-dir
-              mountPath: /csi
         - name: node-driver-registrar
           image: "{{ .Values.csiNodeDriverRegistrar.image.repository }}:{{ .Values.csiNodeDriverRegistrar.image.tag }}"
           imagePullPolicy: {{ .Values.csiNodeDriverRegistrar.image.pullPolicy }}
@@ -95,26 +88,34 @@ spec:
           args:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v={{ .Values.csiNodeDriverRegistrar.logLevel | default 2 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: registration-dir
               mountPath: /registration
-            - name: plugin-dir
+            - name: socket-dir
               mountPath: /csi
         - name: liveness-probe
           image: "{{ .Values.livenessProbe.image.repository }}:{{ .Values.livenessProbe.image.tag }}"
           imagePullPolicy: {{ .Values.livenessProbe.image.pullPolicy }}
+          resources:
+            {{ .Values.livenessProbe.resources | toYaml | nindent 12 }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
           args:
             - --csi-address=$(ADDRESS)
             - --health-port=9808
+            - --timeout=3s
+            - --v={{ .Values.livenessProbe.logLevel | default 2 }}
           ports:
             - containerPort: 9808
               name: healthz
-          volumeMounts:
-            - name: plugin-dir
-              mountPath: /csi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           livenessProbe:
             httpGet:
               path: /healthz
@@ -129,12 +130,15 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
       volumes:
         - name: registration-dir
           hostPath:
             # node-driver-registrar appends a driver-unique filename to this path to avoid conflicts
             path: {{ .Values.kubeletDir }}/plugins_registry
-        - name: plugin-dir
+        - name: socket-dir
           hostPath:
             type: DirectoryOrCreate
             path: {{ .Values.kubeletDir }}/plugins/secrets.kubedoop.dev/
