@@ -37,7 +37,7 @@ RUN microdnf -y update \
     && rm -rf /var/cache/yum
 
 WORKDIR /
-COPY --from=builder /workspace/csi-driver .
+COPY --from=builder /workspace/csi-plugin .
 USER 65532:65532
 
 ENTRYPOINT ["/csi-plugin"]
