@@ -1,4 +1,4 @@
-package controller
+package csi
 
 import (
 	"context"

@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -35,7 +34,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -49,7 +47,6 @@ import (
 var (
 	scheme               = runtime.NewScheme()
 	setupLog             = ctrl.Log.WithName("setup")
-	endpoint             = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	metricsAddr          = flag.String("metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	probeAddr            = flag.String("health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	enableLeaderElection = flag.Bool("leader-elect", false,
@@ -81,7 +78,7 @@ func main() {
 	flag.Parse()
 
 	if *versionInfo {
-		version := version.NewAppInfo(controller.DefaultControllerName).String()
+		version := version.NewAppInfo("secret-operator").String()
 		fmt.Println(version)
 		os.Exit(0)
 	}
@@ -170,27 +167,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := ctrl.SetupSignalHandler()
-
-	go runMgr(ctx, mgr)
-	runCsiController(ctx, mgr.GetClient())
-}
-
-func runMgr(ctx context.Context, mgr ctrl.Manager) {
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctx); err != nil {
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
-}
-
-func runCsiController(ctx context.Context, client client.Client) {
-	setupLog.Info("starting csi controller")
-	controller := controller.NewCsiController(*endpoint, client)
-
-	err := controller.Run(ctx)
-	if err != nil {
-		fmt.Println("Failed to run csi controller", "error", err.Error())
 		os.Exit(1)
 	}
 }

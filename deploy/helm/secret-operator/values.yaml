@@ -1,58 +1,3 @@
-# Default values for secret-operator.
----
-image:
-  repository: quay.io/zncdatadev/secret-csi-driver
-  pullPolicy: IfNotPresent
-  pullSecrets: []
-
-
-csiDriver:
-  # Resources of the secret-operator container itself
-  resources:
-    requests:
-      cpu: 200m
-      memory: 64Mi
-    limits:
-      cpu: 500m
-      memory: 128Mi
-
-csiProvisioner:
-  image:
-    repository: registry.k8s.io/sig-storage/csi-provisioner
-    tag: v5.1.0
-    pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: 100m
-      memory: 32Mi
-    limits:
-      cpu: 200m
-      memory: 64Mi
-csiNodeDriverRegistrar:
-  image:
-    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.12.0
-    pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: 100m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 32Mi
-livenessProbe:
-  image:
-    repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.14.0
-    pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: 100m
-      memory: 32Mi
-    limits:
-      cpu: 200m
-      memory: 32Mi
-
 
 nameOverride: ""
 fullnameOverride: ""
@@ -69,34 +14,118 @@ serviceAccount:
 podAnnotations: {}
 
 # Provide additional labels which get attached to all deployed resources
-labels:
-  kubedoop.dev/vendor: zncdata
-
-podSecurityContext: {}
-  # fsGroup: 2000
-
-securityContext:
-  # secret-operator requires root permissions
-  runAsUser: 0
-  # It is strongly recommended to run secret-operator as a privileged container, since
-  # it enables additional protections for the secret contents.
-  # Unprivileged mode is EXPERIMENTAL and requires manual migration for an existing cluster.
-  privileged: true
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
+labels: {}
 
 # Kubelet dir may vary in environments such as microk8s
 kubeletDir: /var/lib/kubelet
+
+# Default image repository and tag for csi-node and csi-controller
+image:
+  repository: quay.io/zncdatadev/secret-csi-driver
+  # tag:
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+csiController:
+  # image:
+  #   repository: quay.io/zncdatadev/secret-csi-driver
+  #   # tag:
+  #   pullPolicy: IfNotPresent
+  logLevel: 2
+  # Number of controller replicas
+  replicas: 2
+  # Resources of the CSI controller container
+  resources:
+    requests:
+      cpu: 200m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Security context for the CSI controller container
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+
+csiNode:
+  # image:
+  #   repository: quay.io/zncdatadev/secret-csi-driver
+  #   # tag:
+  #   pullPolicy: IfNotPresent
+  logLevel: 2
+  # Resources of the CSI node container
+  resources:
+    requests:
+      cpu: 200m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Security context for the CSI node container
+  securityContext:
+    runAsUser: 0
+    # When mount with Bidirectional propagation, the container must provide privileged access
+    privileged: true
+    allowPrivilegeEscalation: true
+    capabilities:
+      add: ["SYS_ADMIN"]
+      drop:
+      - ALL
+
+csiProvisioner:
+  logLevel: 2
+  image:
+    repository: registry.k8s.io/sig-storage/csi-provisioner
+    tag: v5.1.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+csiNodeDriverRegistrar:
+  logLevel: 2
+  image:
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.12.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 32Mi
+livenessProbe:
+  logLevel: 2
+  image:
+    repository: registry.k8s.io/sig-storage/livenessprobe
+    tag: v2.14.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 32Mi
+
+podSecurityContext:
+  # privileged: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
 
 secretClasses:
   tls:

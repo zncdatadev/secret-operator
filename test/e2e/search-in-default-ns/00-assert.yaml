@@ -1,7 +1,0 @@
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: secret-operator-daemonset
-  namespace: secret-operator-system
-status:
-  (numberReady >= `1`): true
