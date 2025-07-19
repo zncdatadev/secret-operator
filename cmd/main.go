@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -28,6 +29,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	listenerv1alpha1 "github.com/zncdatadev/operator-go/pkg/apis/listeners/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -36,8 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
+	secretv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	"github.com/zncdatadev/secret-operator/internal/controller"
+	"github.com/zncdatadev/secret-operator/internal/util/version"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -54,23 +57,31 @@ var (
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	enableHTTP2 = flag.Bool("enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	versionInfo = flag.Bool("version", false, "Prints the version information")
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(secretsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(listenerv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(secretv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-
 	opts := zap.Options{
 		Development: true,
 	}
 
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if *versionInfo {
+		version := version.NewAppInfo("secret-operator").String()
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -156,9 +167,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := ctrl.SetupSignalHandler()
-
-	if err := mgr.Start(ctx); err != nil {
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
