@@ -96,6 +96,7 @@ spec:
           args:
             - --csi-address=$(ADDRESS)
             - --health-port=9808
+            - --probe-timeout=3s
             - --v=2
           ports:
             - containerPort: 9808

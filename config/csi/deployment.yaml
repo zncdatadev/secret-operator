@@ -73,6 +73,9 @@ spec:
             - --csi-address=$(ADDRESS)
             - --feature-gates=Topology=true
             - --extra-create-metadata
+            - --leader-election
+            - --timeout=1200s
+            - --retry-interval-max=30m
             - --v=2
           securityContext:
             allowPrivilegeEscalation: false
@@ -89,6 +92,7 @@ spec:
           args:
             - --csi-address=$(ADDRESS)
             - --health-port=9808
+            - --probe-timeout=3s
             - --v=2
           ports:
             - containerPort: 9808

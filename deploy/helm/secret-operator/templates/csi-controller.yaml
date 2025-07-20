@@ -23,7 +23,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "operator.serviceAccountName" . }}
+      serviceAccountName: {{ include "operator.serviceAccountName" . }}-csi
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -79,7 +79,7 @@ spec:
             - --leader-election
             - --timeout=1200s
             - --retry-interval-max=30m
-            - -v={{ .Values.csiProvisioner.logLevel | default 2 }}
+            - --v={{ .Values.csiProvisioner.logLevel | default 2 }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
@@ -94,7 +94,7 @@ spec:
           args:
             - --csi-address=$(ADDRESS)
             - --health-port=9809
-            - --probe-timeout=1200s
+            - --probe-timeout=3s
             - --v={{ .Values.livenessProbe.logLevel | default 2 }}
           ports:
             - containerPort: 9809

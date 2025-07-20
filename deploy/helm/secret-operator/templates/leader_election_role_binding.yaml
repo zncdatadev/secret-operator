@@ -1,17 +1,16 @@
-{{- if .Values.serviceAccount.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: {{ include "operator.fullname" . }}-csi
+metadata:
+  name: {{ include "operator.fullname" . }}-leader-election
   labels:
     {{- include "operator.labels" . | nindent 4 }}
     app.kubernetes.io/component: rbac
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ include "operator.fullname" . }}-csi
+  kind: Role
+  name: {{ include "operator.fullname" . }}-leader-election
 subjects:
 - kind: ServiceAccount
   name: {{ include "operator.serviceAccountName" . }}-csi
   namespace: {{ .Release.Namespace }}
-{{- end }}
