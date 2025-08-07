@@ -52,7 +52,6 @@ kubedoop.dev/vendor: zncdata
 {{- toYaml .Values.labels | nindent 2 }}
 {{- end }}
 {{- end }}
-
 {{/*
 {{- end }}
 
@@ -62,24 +61,6 @@ Selector labels
 {{- define "operator.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "operator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{/*
-CSI Controller selector labels
-*/}}
-{{- define "operator.selectorLabelsCSIController" -}}
-app.kubernetes.io/name: {{ include "operator.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/component: csi-controller
-{{- end }}
-
-{{/*
-CSI Node selector labels
-*/}}
-{{- define "operator.selectorLabelsCSINode" -}}
-app.kubernetes.io/name: {{ include "operator.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/component: csi-node
 {{- end }}
 
 {{/*

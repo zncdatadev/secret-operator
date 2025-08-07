@@ -1,10 +1,13 @@
 ## Reference: https://github.com/helm/chart-testing-action
-name: Linting and Testing
+name: Chart Linting and Testing
 on:
   push:
     branches:
       - "main"
   pull_request:
+
+env:
+  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-dev' }}
 
 permissions:
   contents: read
@@ -63,7 +66,7 @@ jobs:
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
-          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+          changed=$(ct list-changed --chart-dirs deploy/helm --target-branch ${{ github.event.repository.default_branch }})
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -75,7 +78,44 @@ jobs:
       - name: Create kind cluster
         if: steps.list-changed.outputs.changed == 'true'
         uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: kind  # Default cluster name is 'chart-testing'
+
+      - name: Load images to cluster
+        if: steps.list-changed.outputs.changed == 'true'
+        run: |
+          make csi-docker-build
+          kind load docker-image quay.io/zncdatadev/secret-csi-driver:${{ env.VERSION }}
 
       - name: Run chart-testing (install)
+        id: ct-test
         if: steps.list-changed.outputs.changed == 'true'
-        run: ct install --config ./.github/configs/ct-install.yaml
+        run: |
+          ct install --config ./.github/configs/ct-install.yaml
+          # Save success result to github output
+          if [[ $? -eq 0 ]]; then
+            echo "ct_tested=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run e2e with chart
+        if: steps.ct-test.outputs.ct_tested == 'true'
+        run: |
+          # Add kubedoop helm repo
+          helm repo add kubedoop https://zncdatadev.github.io/kubedoop-helm-charts/
+
+          HELM_DEPENDENCIES=(
+            commons-operator
+            listener-operator
+          )
+
+          # Install dependencies
+          for dep in "${HELM_DEPENDENCIES[@]}"; do
+            helm upgrade --install --create-namespace --namespace kubedoop-operators --wait $dep kubedoop/$dep
+          done
+
+          # Install listener-operator chart
+          helm install --create-namespace --namespace listener-operators --wait listener-operator deploy/helm/listener-operator
+
+          # E2E tests
+          make chainsaw
+          ./bin/chainsaw test --test-dir ./test/e2e/

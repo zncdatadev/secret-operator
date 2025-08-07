@@ -12,5 +12,8 @@ roleRef:
   name: {{ include "operator.fullname" . }}-leader-election
 subjects:
 - kind: ServiceAccount
+  name: {{ include "operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+- kind: ServiceAccount
   name: {{ include "operator.serviceAccountName" . }}-csi
   namespace: {{ .Release.Namespace }}

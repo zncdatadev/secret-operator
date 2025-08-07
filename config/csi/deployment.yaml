@@ -30,13 +30,6 @@ spec:
         - name: csi-controller
           image: "csi-plugin:latest"
           imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              cpu: 512m
-              memory: 128Mi
-            requests:
-              cpu: 50m
-              memory: 50Mi
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
@@ -46,26 +39,43 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           args:
-            - -endpoint=$(ADDRESS)
-            - -nodeid=$(NODE_NAME)
-            - -zap-log-level=2
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --endpoint=$(ADDRESS)
+            - --nodeid=$(NODE_NAME)
+            - --zap-log-level=2
+          resources:
+            limits:
+              cpu: 512m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
-          securityContext:
-            capabilities:
-              drop:
-              - ALL
         - name: csi-provisioner
           image: "registry.k8s.io/sig-storage/csi-provisioner:v5.1.0"
           imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              cpu: 100m
-              memory: 128Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
@@ -77,6 +87,13 @@ spec:
             - --timeout=1200s
             - --retry-interval-max=30m
             - --v=2
+          resources:
+            limits:
+              cpu: 128m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -97,6 +114,13 @@ spec:
           ports:
             - containerPort: 9808
               name: healthz
+          resources:
+            limits:
+              cpu: 128m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

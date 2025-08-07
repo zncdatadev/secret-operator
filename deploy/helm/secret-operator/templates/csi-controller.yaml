@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,7 +8,8 @@ spec:
   replicas: {{ .Values.csiController.replicas | default 2 }}
   selector:
     matchLabels:
-      {{- include "operator.selectorLabelsCSIController" . | nindent 6 }}
+      app.kubernetes.io/component: csi-controller
+      {{- include "operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -17,7 +17,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "operator.selectorLabelsCSIController" . | nindent 8 }}
+        app.kubernetes.io/component: csi-controller
+        {{- include "operator.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.image.pullSecrets }}
       imagePullSecrets:
@@ -27,27 +28,32 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ include "operator.appname" . }}-controller
-          {{- if .Values.csiController.image }}
-          image: "{{ .Values.csiController.image.repository }}:{{ .Values.csiController.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.csiController.image.pullPolicy }}
-          {{ else }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- end }}
-          resources:
-            {{- .Values.csiController.resources | toYaml | nindent 12 }}
+        - name: {{ include "operator.appname" . }}-csi-controller
+          image: "{{ .Values.image.csiDriver.repository }}:{{ .Values.image.csiDriver.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: "{{ .Values.image.csiDriver.pullPolicy }}"
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
           args:
-            - -endpoint=$(ADDRESS)
-            - -nodeid=$(NODE_NAME)
-            - -zap-log-level={{ .Values.csiController.logLevel | default 2 }}
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --endpoint=$(ADDRESS)
+            - --nodeid=$(NODE_NAME)
+            - --zap-log-level={{ .Values.csiController.logLevel | default 2 }}
+          resources:
+            {{- .Values.csiController.resources | toYaml | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 9809
+              port: 8081
             initialDelaySeconds: 10
             timeoutSeconds: 3
             periodSeconds: 10
@@ -55,20 +61,17 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 9809
+              port: 8081
             initialDelaySeconds: 5
             timeoutSeconds: 3
             periodSeconds: 5
-          securityContext:
-            {{- toYaml .Values.csiController.securityContext | nindent 12 }}
+            failureThreshold: 3
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
         - name: csi-provisioner
-          image: "{{ .Values.csiProvisioner.image.repository }}:{{ .Values.csiProvisioner.image.tag }}"
-          imagePullPolicy: {{ .Values.csiProvisioner.image.pullPolicy }}
-          resources:
-            {{ .Values.csiProvisioner.resources | toYaml | nindent 12 }}
+          image: "{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
+          imagePullPolicy: {{ .Values.image.csiProvisioner.pullPolicy }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
@@ -80,54 +83,59 @@ spec:
             - --timeout=1200s
             - --retry-interval-max=30m
             - --v={{ .Values.csiProvisioner.logLevel | default 2 }}
+          resources:
+            {{- .Values.csiProvisioner.resources | toYaml | nindent 12 }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
         - name: liveness-probe
-          image: "{{ .Values.livenessProbe.image.repository }}:{{ .Values.livenessProbe.image.tag }}"
-          imagePullPolicy: {{ .Values.livenessProbe.image.pullPolicy }}
-          resources:
-            {{- .Values.livenessProbe.resources | toYaml | nindent 12 }}
+          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
           args:
             - --csi-address=$(ADDRESS)
-            - --health-port=9809
+            - --health-port=9808
             - --probe-timeout=3s
             - --v={{ .Values.livenessProbe.logLevel | default 2 }}
+          resources:
+            {{- .Values.livenessProbe.resources | toYaml | nindent 12 }}
           ports:
-            - containerPort: 9809
+            - containerPort: 9808
               name: healthz
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /csi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 9809
+              port: 9808
             initialDelaySeconds: 10
             periodSeconds: 20
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 9809
+              port: 9808
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
       volumes:
         - name: socket-dir
           emptyDir: {}
-      {{- with .Values.csiController.nodeSelector }}
+      {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.csiController.affinity }}
+      {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.csiController.tolerations }}
+      {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
