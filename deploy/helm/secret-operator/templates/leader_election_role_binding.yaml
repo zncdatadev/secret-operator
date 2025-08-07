@@ -1,7 +1,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-metadata:
   name: {{ include "operator.fullname" . }}-leader-election
   labels:
     {{- include "operator.labels" . | nindent 4 }}
