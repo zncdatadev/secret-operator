@@ -52,8 +52,6 @@ kubedoop.dev/vendor: zncdata
 {{- toYaml .Values.labels | nindent 2 }}
 {{- end }}
 {{- end }}
-{{/*
-{{- end }}
 
 {{/*
 Selector labels
