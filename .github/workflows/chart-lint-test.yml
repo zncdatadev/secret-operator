@@ -88,8 +88,10 @@ jobs:
       - name: Load images to cluster
         if: steps.list-changed.outputs.changed == 'true'
         run: |
+          make docker-build
           make csi-docker-build
-          kind load docker-image quay.io/zncdatadev/secret-csi-driver:${{ env.VERSION }}
+          kind load docker-image quay.io/zncdatadev/secret-operator:${{ env.VERSION }} quay.io/zncdatadev/secret-csi-driver:${{ env.VERSION }}
+
 
       - name: Run chart-testing (install)
         id: ct-test
@@ -117,8 +119,8 @@ jobs:
             helm upgrade --install --create-namespace --namespace kubedoop-operators --wait $dep kubedoop/$dep
           done
 
-          # Install listener-operator chart
-          helm install --create-namespace --namespace listener-operators --wait listener-operator deploy/helm/listener-operator
+          # Install secret-operator chart
+          helm install --create-namespace --namespace secret-operators --wait secret-operator ./deploy/helm/secret-operator
 
           # E2E tests
           make chainsaw
