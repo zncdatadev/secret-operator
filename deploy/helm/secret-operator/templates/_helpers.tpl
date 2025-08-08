@@ -47,6 +47,10 @@ helm.sh/chart: {{ include "operator.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+kubedoop.dev/vendor: zncdata
+{{- if .Values.labels }}
+{{- toYaml .Values.labels | nindent 2 }}
+{{- end }}
 {{- end }}
 
 {{/*

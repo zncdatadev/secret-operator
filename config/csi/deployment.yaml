@@ -1,31 +1,33 @@
+---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
-  name: csi-node
+  name: csi-controller
   labels:
     app.kubernetes.io/name: secret-operator
     app.kubernetes.io/instance: secret-operator
-    app.kubernetes.io/component: csi-node
+    app.kubernetes.io/component: csi-controller
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: secret-operator
       app.kubernetes.io/instance: secret-operator
-      app.kubernetes.io/component: csi-node
+      app.kubernetes.io/component: csi-controller
+  replicas: 1
   template:
     metadata:
       labels:
         app.kubernetes.io/name: secret-operator
         app.kubernetes.io/instance: secret-operator
-        app.kubernetes.io/component: csi-node
+        app.kubernetes.io/component: csi-controller
     spec:
+      serviceAccountName: controller-manager
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: controller-manager
       containers:
-        - name: csi-node
+        - name: csi-controller
           image: "csi-plugin:latest"
           imagePullPolicy: IfNotPresent
           env:
@@ -37,6 +39,7 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           args:
+            - --leader-elect
             - --health-probe-bind-address=:8081
             - --endpoint=$(ADDRESS)
             - --nodeid=$(NODE_NAME)
@@ -49,12 +52,8 @@ spec:
               cpu: 10m
               memory: 64Mi
           securityContext:
-            runAsUser: 0
-            privileged: true  # When mount with Bidirectional propagation, the container must provide privileged access
-            allowPrivilegeEscalation: true
-            capabilities:
-              add: ["SYS_ADMIN"]
-              drop: ["ALL"]
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           livenessProbe:
             httpGet:
               path: /healthz
@@ -74,24 +73,23 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
-            - name: mountpoint-dir
-              mountPath: /var/lib/kubelet/pods
-              mountPropagation: Bidirectional
-        - name: node-driver-registrar
-          image: "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.12.0"
+        - name: csi-provisioner
+          image: "registry.k8s.io/sig-storage/csi-provisioner:v5.1.0"
           imagePullPolicy: IfNotPresent
           env:
             - name: ADDRESS
               value: unix:///csi/csi.sock
-            - name: DRIVER_REG_SOCK_PATH
-              value: /var/lib/kubelet/plugins/secrets.kubedoop.dev/csi.sock
           args:
             - --csi-address=$(ADDRESS)
-            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --feature-gates=Topology=true
+            - --extra-create-metadata
+            - --leader-election
+            - --timeout=1200s
+            - --retry-interval-max=30m
             - --v=2
           resources:
             limits:
-              cpu: 512m
+              cpu: 128m
               memory: 128Mi
             requests:
               cpu: 10m
@@ -100,8 +98,6 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           volumeMounts:
-            - name: registration-dir
-              mountPath: /registration
             - name: socket-dir
               mountPath: /csi
         - name: liveness-probe
@@ -124,7 +120,7 @@ spec:
               memory: 64Mi
             requests:
               cpu: 10m
-              memory: 64Mi
+              memory: 32Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -146,15 +142,5 @@ spec:
             - name: socket-dir
               mountPath: /csi
       volumes:
-        - name: registration-dir
-          hostPath:
-            # node-driver-registrar appends a driver-unique filename to this path to avoid conflicts
-            path: /var/lib/kubelet/plugins_registry
         - name: socket-dir
-          hostPath:
-            type: DirectoryOrCreate
-            path: /var/lib/kubelet/plugins/secrets.kubedoop.dev/
-        - name: mountpoint-dir
-          hostPath:
-            type: DirectoryOrCreate
-            path: /var/lib/kubelet/pods/
+          emptyDir: {}

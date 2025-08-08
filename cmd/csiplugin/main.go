@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"os"
 
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"github.com/zncdatadev/secret-operator/internal/csi"
+	"github.com/zncdatadev/secret-operator/internal/util/version"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -36,33 +36,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	secretv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
-	"github.com/zncdatadev/secret-operator/internal/controller"
-	"github.com/zncdatadev/secret-operator/internal/util/version"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
-	scheme               = runtime.NewScheme()
-	setupLog             = ctrl.Log.WithName("setup")
-	metricsAddr          = flag.String("metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	probeAddr            = flag.String("health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	enableLeaderElection = flag.Bool("leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.",
-	)
-	secureMetrics = flag.Bool("metrics-secure", true,
-		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
-	enableHTTP2 = flag.Bool("enable-http2", false,
-		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	versionInfo = flag.Bool("version", false, "Prints the version information")
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(listenerv1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(secretv1alpha1.AddToScheme(scheme))
@@ -70,6 +57,29 @@ func init() {
 }
 
 func main() {
+	var endpoint string
+	var nodeID string
+	var metricsAddr string
+	var enableLeaderElection bool
+	var probeAddr string
+	var secureMetrics bool
+	var enableHTTP2 bool
+	var tlsOpts []func(*tls.Config)
+	var versionInfo bool
+	flag.StringVar(&endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	flag.StringVar(&nodeID, "nodeid", "", "node id")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
+		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&secureMetrics, "metrics-secure", true,
+		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
+	flag.BoolVar(&enableHTTP2, "enable-http2", false,
+		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&versionInfo, "version", false, "Prints the version information")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -77,8 +87,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	if *versionInfo {
-		version := version.NewAppInfo("secret-operator").String()
+	if versionInfo {
+		version := version.NewAppInfo(csi.DefaultDriverName).String()
 		fmt.Println(version)
 		os.Exit(0)
 	}
@@ -94,26 +104,21 @@ func main() {
 		setupLog.Info("disabling http/2")
 		c.NextProtos = []string{"http/1.1"}
 	}
-	var tlsOpts []func(*tls.Config)
-	if !*enableHTTP2 {
+	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
-
-	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: tlsOpts,
-	})
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
 	// - https://book.kubebuilder.io/reference/metrics.html
 	metricsServerOptions := metricsserver.Options{
-		BindAddress:   *metricsAddr,
-		SecureServing: *secureMetrics,
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
 		TLSOpts:       tlsOpts,
 	}
 
-	if *secureMetrics {
+	if secureMetrics {
 		// FilterProvider is used to protect the metrics endpoint with authn/authz.
 		// These configurations ensure that only authorized users and service accounts
 		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
@@ -127,10 +132,9 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
-		HealthProbeBindAddress: *probeAddr,
-		LeaderElection:         *enableLeaderElection,
-		WebhookServer:          webhookServer,
-		LeaderElectionID:       "8b74b19a.kubedoop.dev",
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "6a34b29b.kubedoop.dev",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -148,16 +152,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.SecretClassReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SecretClass")
-		os.Exit(1)
-	}
-
-	// +kubebuilder:scaffold:builder
-
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -167,9 +161,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+	ctx := ctrl.SetupSignalHandler()
+
+	go func() {
+		setupLog.Info("starting manager")
+		if err := mgr.Start(ctx); err != nil {
+			setupLog.Error(err, "problem running manager")
+			os.Exit(1)
+		}
+	}()
+
+	setupLog.Info("starting driver")
+	driver := csi.NewDriver(nodeID, endpoint, mgr.GetClient())
+
+	err = driver.Run(ctx)
+	if err != nil {
+		fmt.Println("Failed to run driver", "error", err.Error())
 		os.Exit(1)
 	}
 }

@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "operator.fullname" . }}-csi-controller
+  labels:
+    {{- include "operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.csiController.replicas | default 2 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: csi-controller
+      {{- include "operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/component: csi-controller
+        {{- include "operator.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "operator.serviceAccountName" . }}-csi
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "operator.appname" . }}-csi-controller
+          image: "{{ .Values.image.csiDriver.repository }}:{{ .Values.image.csiDriver.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: "{{ .Values.image.csiDriver.pullPolicy }}"
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --endpoint=$(ADDRESS)
+            - --nodeid=$(NODE_NAME)
+            - --zap-log-level={{ .Values.csiController.logLevel | default 2 }}
+          resources:
+            {{- .Values.csiController.resources | toYaml | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-provisioner
+          image: "{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
+          imagePullPolicy: {{ .Values.image.csiProvisioner.pullPolicy }}
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+          args:
+            - --csi-address=$(ADDRESS)
+            - --feature-gates=Topology=true
+            - --extra-create-metadata
+            - --leader-election
+            - --timeout=1200s
+            - --retry-interval-max=30m
+            - --v={{ .Values.csiProvisioner.logLevel | default 2 }}
+          resources:
+            {{- .Values.csiProvisioner.resources | toYaml | nindent 12 }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: liveness-probe
+          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
+          env:
+            - name: ADDRESS
+              value: unix:///csi/csi.sock
+          args:
+            - --csi-address=$(ADDRESS)
+            - --health-port=9808
+            - --probe-timeout=3s
+            - --v={{ .Values.livenessProbe.logLevel | default 2 }}
+          resources:
+            {{- .Values.livenessProbe.resources | toYaml | nindent 12 }}
+          ports:
+            - containerPort: 9808
+              name: healthz
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9808
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9808
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

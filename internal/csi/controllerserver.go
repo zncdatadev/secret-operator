@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/go-logr/logr"
 	"github.com/zncdatadev/operator-go/pkg/constants"
 	"github.com/zncdatadev/secret-operator/internal/csi/backend"
 	"github.com/zncdatadev/secret-operator/pkg/pod_info"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,12 +40,15 @@ var (
 type ControllerServer struct {
 	csi.UnimplementedControllerServer
 	client client.Client
+
+	logger logr.Logger
 }
 
 var _ csi.ControllerServer = &ControllerServer{}
 
 func NewControllerServer(client client.Client) *ControllerServer {
-	return &ControllerServer{client: client}
+	logger := ctrl.Log.WithName("csi-controller")
+	return &ControllerServer{client: client, logger: logger}
 }
 
 func (c *ControllerServer) CreateVolume(ctx context.Context, request *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
@@ -162,7 +167,7 @@ func (c *ControllerServer) DeleteVolume(ctx context.Context, request *csi.Delete
 	}
 
 	if !dynamic {
-		logger.V(1).Info("volume is not dynamic, skip delete volume")
+		c.logger.V(1).Info("volume is not dynamic, skip delete volume")
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 

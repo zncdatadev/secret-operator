@@ -11,9 +11,6 @@ spec:
   - name: kadminKeytabSecret
     value: kadmin-keytab
   steps:
-  - try:
-    - assert:
-        file: secretcsi-assert.yaml
   - try:  # deploy kerberos
     - apply:  # create a krb5 deployment and service, both named "krb5"
         file: krb5.yaml

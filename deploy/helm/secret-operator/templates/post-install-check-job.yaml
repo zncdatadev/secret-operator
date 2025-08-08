@@ -35,7 +35,7 @@ spec:
           SLEEP_TIME={{ .Values.postInstall.checkDaemonSet.sleepTime | default 10 }}
           MIN_NODES={{ .Values.postInstall.checkDaemonSet.minAvailableNodes | default 0 }}
 
-          DS_NAME="{{ include "operator.fullname" . }}-daemonset"
+          DS_NAME="{{ include "operator.fullname" . }}-csi-node"
           NAMESPACE="{{ .Release.Namespace }}"
 
           echo "Looking for DaemonSet: $DS_NAME in namespace: $NAMESPACE"
