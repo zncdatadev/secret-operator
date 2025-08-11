@@ -8,15 +8,15 @@ image:
     tag: 0.0.0-dev
     pullPolicy: IfNotPresent
   csiProvisioner:
-    repository: registry.k8s.io/sig-storage/csi-provisioner
+    repository: quay.io/zncdatadev/sig-storage/csi-provisioner
     tag: v5.1.0
     pullPolicy: IfNotPresent
   csiNodeDriverRegistrar:
-    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    repository: quay.io/zncdatadev/sig-storage/csi-node-driver-registrar
     tag: v2.12.0
     pullPolicy: IfNotPresent
   livenessProbe:
-    repository: registry.k8s.io/sig-storage/livenessprobe
+    repository: quay.io/zncdatadev/sig-storage/livenessprobe
     tag: v2.14.0
     pullPolicy: IfNotPresent
 
