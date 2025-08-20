@@ -42,11 +42,11 @@ spec:
             - --nodeid=$(NODE_NAME)
             - --zap-log-level=2
           resources:
-            limits:
-              cpu: 512m
-              memory: 128Mi
             requests:
               cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
               memory: 64Mi
           securityContext:
             runAsUser: 0
@@ -90,12 +90,12 @@ spec:
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
             - --v=2
           resources:
-            limits:
-              cpu: 512m
-              memory: 128Mi
             requests:
               cpu: 10m
-              memory: 64Mi
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -119,12 +119,12 @@ spec:
             - containerPort: 9808
               name: healthz
           resources:
-            limits:
-              cpu: 128m
-              memory: 64Mi
             requests:
               cpu: 10m
-              memory: 64Mi
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 16Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
