@@ -291,6 +291,7 @@ jobs:
         run: |
           HELM_DEPENDENCIES=(
             commons-operator
+            listener-operator
           )
 
           # Install dependencies
