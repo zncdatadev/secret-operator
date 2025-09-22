@@ -271,7 +271,7 @@ jobs:
         run: |
           make docker-build
           make csi-docker-build
-          kind load docker-image quay.io/zncdatadev/secret-operator:${{ env.VERSION }} quay.io/zncdatadev/secret-csi-driver:${{ env.VERSION }}
+          kind load docker-image quay.io/zncdatadev/secret-operator:$VERSION quay.io/zncdatadev/secret-csi-driver:$VERSION
 
       - name: Run chart-testing (install)
         id: ct-test
