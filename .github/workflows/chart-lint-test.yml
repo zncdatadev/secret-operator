@@ -6,18 +6,17 @@ on:
       - "main"
   pull_request:
 
+
 env:
   VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-dev' }}
 
-permissions:
-  contents: read
 
 jobs:
   check-crds-sync:
     runs-on: ubuntu-latest
     steps:
       - name: Clone the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -41,7 +40,7 @@ jobs:
       options: --user 1001
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run ah lint
         working-directory: deploy/helm
@@ -51,12 +50,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4.3.0
+        uses: azure/setup-helm@v4.3.1
 
       - uses: actions/setup-python@v5
         with:
@@ -98,8 +97,9 @@ jobs:
         if: steps.list-changed.outputs.changed == 'true'
         run: |
           ct install --config ./.github/configs/ct-install.yaml
+          exit_code=$?
           # Save success result to github output
-          if [[ $? -eq 0 ]]; then
+          if [[ $exit_code -eq 0 ]]; then
             echo "ct_tested=true" >> "$GITHUB_OUTPUT"
           fi
 
