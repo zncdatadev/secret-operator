@@ -5,7 +5,7 @@ image:
   pullSecrets: []
   csiDriver:
     repository: quay.io/zncdatadev/secret-csi-driver
-    tag: 0.0.0-dev
+    tag: ""   # Defaults to the chart appVersion
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: quay.io/zncdatadev/sig-storage/csi-provisioner
