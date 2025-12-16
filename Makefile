@@ -133,7 +133,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	"$(CONTAINER_TOOL)" build --build-arg LDFLAGS=$(LDFLAGS) -t ${IMG} .
+	"$(CONTAINER_TOOL)" build --build-arg LDFLAGS=$(LDFLAGS) -t ${IMG} -f build/Dockerfile .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -149,7 +149,7 @@ PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' build/Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name $(PROJECT_NAME)-builder
 	$(CONTAINER_TOOL) buildx use $(PROJECT_NAME)-builder
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --build-arg LDFLAGS=$(LDFLAGS) --tag ${IMG} --metadata-file docker-digests.json -f Dockerfile.cross .
