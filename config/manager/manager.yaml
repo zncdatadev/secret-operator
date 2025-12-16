@@ -4,8 +4,6 @@ metadata:
   labels:
     control-plane: controller-manager
     app.kubernetes.io/name: secret-operator
-    app.kubernetes.io/instance: controller-manager
-    app.kubernetes.io/component: manager
     app.kubernetes.io/managed-by: kustomize
   name: system
 # ---
