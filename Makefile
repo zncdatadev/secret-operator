@@ -167,29 +167,29 @@ CSIDRIVER_IMG ?= ${REGISTRY}/secret-csi-driver:$(VERSION)
 
 .PHONY: csi-build
 csi-build: ## Build csi plugin
-  go build -ldflags $(LDFLAGS) -o bin/csiplugin cmd/csiplugin/main.go
+	go build -ldflags $(LDFLAGS) -o bin/csiplugin cmd/csiplugin/main.go
 
 .PHONY: csi-run
 csi-run: ## Run csi plugin
-  go run ./cmd/csiplugin/main.go
+	go run ./cmd/csiplugin/main.go
 
 .PHONY: csi-docker-build
 csi-docker-build: ## Build docker image with the csi plugin
-  "$(CONTAINER_TOOL)" build -t ${CSIDRIVER_IMG} --build-arg LDFLAGS=$(LDFLAGS) -f build/csiplugin.Dockerfile .
+	"$(CONTAINER_TOOL)" build -t ${CSIDRIVER_IMG} --build-arg LDFLAGS=$(LDFLAGS) -f build/csiplugin.Dockerfile .
 
 .PHONY: csi-docker-push
 csi-docker-push: ## Push docker image with the csi plugin
-  "$(CONTAINER_TOOL)" push ${CSIDRIVER_IMG}
+	"$(CONTAINER_TOOL)" push ${CSIDRIVER_IMG}
 
 .PHONY: csi-docker-buildx
 csi-docker-buildx: ## Build and push docker image for the csi plugin for cross-platform support
-  # copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-  sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' build/csiplugin.Dockerfile > build/csiplugin.Dockerfile.cross
-  - $(CONTAINER_TOOL) buildx create --name csi-builder
-  $(CONTAINER_TOOL) buildx use csi-builder
-  - $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} --metadata-file docker-digests.json --build-arg LDFLAGS=$(LDFLAGS) -f build/csiplugin.Dockerfile.cross .
-  - $(CONTAINER_TOOL) buildx rm csi-builder
-  rm build/csiplugin.Dockerfile.cross
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' build/csiplugin.Dockerfile > build/csiplugin.Dockerfile.cross
+	- $(CONTAINER_TOOL) buildx create --name csi-builder
+	$(CONTAINER_TOOL) buildx use csi-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CSIDRIVER_IMG} --metadata-file docker-digests.json --build-arg LDFLAGS=$(LDFLAGS) -f build/csiplugin.Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx rm csi-builder
+	rm build/csiplugin.Dockerfile.cross
 
 
 ##@ Deployment
@@ -333,7 +333,7 @@ KIND_K8S_VERSION ?= 1.26.15
 KIND_IMAGE ?= kindest/node:v${KIND_K8S_VERSION}
 # Define operator dependencies to be installed before running chainsaw tests.
 # It is a list of Helm chart names separated by spaces.
-OPERATOR_DEPENDS ?= commons-operator listener-operator
+OPERATOR_DEPENDS ?= commons-operator listener-operator secret-operator zookeeper-operator
 
 .PHONY: chainsaw
 chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
@@ -363,9 +363,8 @@ setup-chainsaw-cluster: ## Set up a Kind cluster for e2e tests if it does not ex
 	fi
 
 .PHONY: setup-chainsaw-e2e
-setup-chainsaw-e2e: chainsaw docker-build csi-docker-build ## Run the chainsaw setup
+setup-chainsaw-e2e: chainsaw docker-build ## Run the chainsaw setup
 	"$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(IMG)"
-  "$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(CSIDRIVER_IMG)"
 	KUBECONFIG=$(CHAINSAW_KUBECONFIG) $(MAKE) deploy
 
 
