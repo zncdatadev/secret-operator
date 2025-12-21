@@ -142,13 +142,14 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-**/__debug_*
+# Ignore kubeconfig files
+.kubeconfig*
 
-kind-kubeconfig*
-
-kind-config-local.yaml
-
+# Ignore docker digest files
 docker-digests.json
+
+*-local.yaml
+*-local.*
 
 # helm charts
 # helm package directory

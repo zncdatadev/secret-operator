@@ -22,9 +22,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/zncdatadev/secret-operator/internal/csi"
-	"github.com/zncdatadev/secret-operator/internal/util/version"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -40,6 +37,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	secretv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
+	"github.com/zncdatadev/secret-operator/internal/csi"
+	"github.com/zncdatadev/secret-operator/internal/util/version"
 	// +kubebuilder:scaffold:imports
 )
 
