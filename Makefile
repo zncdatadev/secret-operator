@@ -333,7 +333,7 @@ KIND_K8S_VERSION ?= 1.26.15
 KIND_IMAGE ?= kindest/node:v${KIND_K8S_VERSION}
 # Define operator dependencies to be installed before running chainsaw tests.
 # It is a list of Helm chart names separated by spaces.
-OPERATOR_DEPENDS ?= commons-operator listener-operator secret-operator zookeeper-operator
+OPERATOR_DEPENDS ?= commons-operator listener-operator
 
 .PHONY: chainsaw
 chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
