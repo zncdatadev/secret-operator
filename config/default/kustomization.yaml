@@ -42,16 +42,22 @@ patches:
   target:
     kind: Deployment
 
-patchesJson6902:
-# Override StorageClass name to avoid namePrefix
-- target:
-    version: v1
-    kind: StorageClass
-    name: secret-operator-secrets.kubedoop.dev
-  patch: |-
-    - op: replace
-      path: /metadata/name
-      value: secrets.kubedoop.dev
+# namePrefix modifies the names of all resources. To associate certain resource names with the CRD,
+# replacements are needed to replace certain fields in the names.
+replacements:
+- source:
+    kind: CustomResourceDefinition
+    name: secretclasses.secrets.kubedoop.dev
+    fieldPath: spec.group
+  targets:
+    - select:
+        kind: CSIDriver
+      fieldPaths:
+      - metadata.name
+    - select:
+        kind: StorageClass
+      fieldPaths:
+      - metadata.name
 
 # Uncomment the patches line if you enable Metrics and CertManager
 # [METRICS-WITH-CERTS] To enable metrics protected with certManager, uncomment the following line.
