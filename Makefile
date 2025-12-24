@@ -366,6 +366,7 @@ setup-chainsaw-cluster: ## Set up a Kind cluster for e2e tests if it does not ex
 setup-chainsaw-e2e: chainsaw docker-build ## Run the chainsaw setup
 	"$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(IMG)"
 	KUBECONFIG=$(CHAINSAW_KUBECONFIG) $(MAKE) deploy
+	KUBECONFIG=$(CHAINSAW_KUBECONFIG) "$(KUSTOMIZE)" build config/samples | kubectl apply -f -
 
 
 .PHONY: chainsaw-e2e
