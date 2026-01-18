@@ -134,12 +134,8 @@ func (k *Kadmin) Ktadd(principals ...string) ([]byte, error) {
 		}
 	}()
 
-	queries := []string{
-		"ktadd",
-		"-k",   // "-k" flag is used to specify the keytab file
-		keytab, // keytab file path
-		"-norandkey",
-	}
+	queries := make([]string, 0, 4+len(principals))
+	queries = append(queries, "ktadd", "-k", keytab, "-norandkey")
 
 	queries = append(queries, principals...)
 
