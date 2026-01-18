@@ -1,0 +1,25 @@
+{{- if .Values.csiController.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "operator.fullname" . }}-csi-controller-metrics
+  labels:
+    app.kubernetes.io/component: csi-controller
+    {{- include "operator.labels" . | nindent 4 }}
+  {{- with .Values.csiController.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.csiController.metrics.service.type | default "ClusterIP" }}
+  ports:
+    {{- $scheme := include "operator.metricsScheme" (dict "secure" .Values.csiController.metrics.secure) }}
+    {{- $port := include "operator.metricsPort" .Values.csiController.metrics }}
+    - port: {{ $port }}
+      targetPort: {{ $scheme }}
+      protocol: TCP
+      name: {{ $scheme }}
+  selector:
+    app.kubernetes.io/component: csi-controller
+    {{- include "operator.selectorLabels" . | nindent 4 }}
+{{- end }}

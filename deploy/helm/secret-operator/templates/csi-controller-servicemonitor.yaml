@@ -1,0 +1,28 @@
+{{- if and .Values.csiController.metrics.enabled .Values.csiController.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "operator.fullname" . }}-csi-controller
+  labels:
+    app.kubernetes.io/component: csi-controller
+    {{- include "operator.labels" . | nindent 4 }}
+    {{- with .Values.csiController.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: csi-controller
+      {{- include "operator.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: {{ if .Values.csiController.metrics.secure }}https{{ else }}http{{ end }}
+      path: {{ .Values.csiController.serviceMonitor.path }}
+      interval: {{ .Values.csiController.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.csiController.serviceMonitor.scrapeTimeout }}
+      {{- if .Values.csiController.metrics.secure }}
+      scheme: https
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tlsConfig:
+        {{- toYaml .Values.csiController.serviceMonitor.tlsConfig | nindent 8 }}
+      {{- end }}
+{{- end }}

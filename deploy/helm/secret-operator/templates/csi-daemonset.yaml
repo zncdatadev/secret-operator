@@ -39,16 +39,35 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           args:
-            - --health-probe-bind-address=:8081
+            - --health-probe-bind-address={{ .Values.csiNode.healthProbe.bindAddress }}
+            {{- if .Values.csiNode.metrics.enabled }}
+            {{- $metricsPort := include "operator.metricsPort" .Values.csiNode.metrics }}
+            - --metrics-bind-address=:{{ $metricsPort }}
+            {{- if .Values.csiNode.metrics.secure }}
+            - --metrics-secure=true
+            {{- end }}
+            {{- end }}
             - -endpoint=$(ADDRESS)
             - -nodeid=$(NODE_NAME)
             - -zap-log-level={{ .Values.csiNode.logLevel | default 2 }}
+          ports:
+            {{- if .Values.csiNode.metrics.enabled }}
+            {{- $metricsScheme := include "operator.metricsScheme" .Values.csiNode.metrics }}
+            {{- $metricsPort := include "operator.metricsPort" .Values.csiNode.metrics }}
+            - containerPort: {{ $metricsPort }}
+              name: {{ $metricsScheme }}
+              protocol: TCP
+            {{- end }}
+            {{- $healthPort := include "operator.healthProbePort" .Values.csiNode.healthProbe }}
+            - containerPort: {{ $healthPort }}
+              name: health
+              protocol: TCP
           resources:
             {{- .Values.csiNode.resources | toYaml | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: {{ $healthPort }}
             initialDelaySeconds: 10
             timeoutSeconds: 3
             periodSeconds: 10
@@ -56,7 +75,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8081
+              port: {{ $healthPort }}
             initialDelaySeconds: 5
             timeoutSeconds: 3
             periodSeconds: 5
