@@ -41,10 +41,29 @@ spec:
                   fieldPath: spec.nodeName
           args:
             - --leader-elect
-            - --health-probe-bind-address=:8081
+            - --health-probe-bind-address={{ .Values.csiController.healthProbe.bindAddress }}
+            {{- if .Values.csiController.metrics.enabled }}
+            {{- $metricsPort := include "operator.metricsPort" .Values.csiController.metrics }}
+            - --metrics-bind-address=:{{ $metricsPort }}
+            {{- if .Values.csiController.metrics.secure }}
+            - --metrics-secure=true
+            {{- end }}
+            {{- end }}
             - --endpoint=$(ADDRESS)
             - --nodeid=$(NODE_NAME)
             - --zap-log-level={{ .Values.csiController.logLevel | default 2 }}
+          ports:
+            {{- if .Values.csiController.metrics.enabled }}
+            {{- $metricsScheme := include "operator.metricsScheme" .Values.csiController.metrics }}
+            {{- $metricsPort := include "operator.metricsPort" .Values.csiController.metrics }}
+            - containerPort: {{ $metricsPort }}
+              name: {{ $metricsScheme }}
+              protocol: TCP
+            {{- end }}
+            {{- $healthPort := include "operator.healthProbePort" .Values.csiController.healthProbe }}
+            - containerPort: {{ $healthPort }}
+              name: health
+              protocol: TCP
           resources:
             {{- .Values.csiController.resources | toYaml | nindent 12 }}
           securityContext:
@@ -53,7 +72,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: {{ $healthPort }}
             initialDelaySeconds: 10
             timeoutSeconds: 3
             periodSeconds: 10
@@ -61,7 +80,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: {{ $healthPort }}
             initialDelaySeconds: 5
             timeoutSeconds: 3
             periodSeconds: 5

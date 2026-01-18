@@ -1,0 +1,26 @@
+{{- if .Values.csiNode.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "operator.fullname" . }}-csi-node-metrics
+  labels:
+    app.kubernetes.io/component: csi-node
+    {{- include "operator.labels" . | nindent 4 }}
+  {{- with .Values.csiNode.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.csiNode.metrics.service.type | default "ClusterIP" }}
+  clusterIP: None  # Headless service for DaemonSet
+  ports:
+    {{- $scheme := include "operator.metricsScheme" (dict "secure" .Values.csiNode.metrics.secure) }}
+    {{- $port := include "operator.metricsPort" .Values.csiNode.metrics }}
+    - port: {{ $port }}
+      targetPort: {{ $scheme }}
+      protocol: TCP
+      name: {{ $scheme }}
+  selector:
+    app.kubernetes.io/component: csi-node
+    {{- include "operator.selectorLabels" . | nindent 4 }}
+{{- end }}
