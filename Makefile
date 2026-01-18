@@ -272,6 +272,11 @@ envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
+# NOTE: golangci-lint v2.8.0 is built with Go 1.24, which cannot properly analyze Go 1.25+ code.
+# This custom build patches the Go version check to allow linting Go 1.25+ projects.
+# The patch file (hack/golangci-lint-version-patch.txt) bypasses the version validation.
+# To lint Go 1.25+ code, temporarily set `go 1.24.0` in go.mod before running `make lint`,
+# then restore it afterwards. This is needed because the Go 1.24 type checker cannot parse Go 1.25 syntax.
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
