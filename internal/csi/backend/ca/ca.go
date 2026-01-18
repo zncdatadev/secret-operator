@@ -345,7 +345,7 @@ type SubjectAltName struct {
 }
 
 func (s *SubjectAltName) Marshal() ([]byte, error) {
-	rawValues := make([]asn1.RawValue, 0)
+	rawValues := make([]asn1.RawValue, 0, len(s.DNSNames)+len(s.IPAddresses)+len(s.EmailAddresses)+len(s.URIs))
 
 	for _, dnsName := range s.DNSNames {
 		rawValues = append(rawValues, asn1.RawValue{

@@ -51,7 +51,7 @@ func (p *PodInfo) getPodNamespace() string {
 // k8s assign ips for pod when pvc is successfully bound,
 // so it is empty when pvc is not bound
 func (p *PodInfo) getPodIPs() []string {
-	ips := []string{}
+	ips := make([]string, 0, len(p.Pod.Status.PodIPs))
 	for _, address := range p.Pod.Status.PodIPs {
 		ips = append(ips, address.IP)
 	}
@@ -120,7 +120,7 @@ func (p *PodInfo) getPodAddresses() ([]Address, error) {
 }
 
 func (p *PodInfo) getServiceAddresses(serviceNames []string) []Address {
-	addresses := make([]Address, 0)
+	addresses := make([]Address, 0, len(serviceNames))
 	for _, svcName := range serviceNames {
 		addresses = append(addresses, p.getFQDNAddress(svcName))
 	}
