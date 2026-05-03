@@ -50,21 +50,46 @@ spec:
             status:
               availableReplicas: 1
               readyReplicas: 1
-      - sleep:
-          duration: 80s
       - script:
           env:
             - name: NAMESPACE
               value: ($namespace)
           content: |
-            # count k8s events with `Successfully assigned default/tls-will-expires-0 to ` filter with pod name
-            # If the count > 1, then the test is fine, pod is restarted when the certificate expires
-            restart_count=$(kubectl -n "$NAMESPACE" get events --field-selector involvedObject.name=tls-will-expires-0 --no-headers | grep 'Started container tls-will-expires' | wc -l)
-            if [ $restart_count -gt 1 ]; then
-              echo "Pod tls-will-expires-0 is restarted when the certificate expires"
-            else
-              echo "Pod tls-will-expires-0 is not restarted when the certificate expires"
-              exit 1
-            fi
+            # Record the initial pod UID right after the StatefulSet becomes ready.
+            INITIAL_UID=$(kubectl -n "$NAMESPACE" get pod tls-will-expires-0 \
+              -o jsonpath='{.metadata.uid}')
+            echo "Initial pod UID: $INITIAL_UID"
+
+            # The CSI plugin annotates the pod with an expiry time equal to
+            # now + (jitteredCertLife - restartBuffer).  With certLife=60s,
+            # restartBuffer=10s and jitter 0-20% the commons-operator evicts the
+            # pod after 38-50 s.  Poll for up to 90 s to give comfortable margin.
+            TIMEOUT=90
+            ELAPSED=0
+            while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+              sleep 5
+              ELAPSED=$((ELAPSED + 5))
+              CURRENT_UID=$(kubectl -n "$NAMESPACE" get pod tls-will-expires-0 \
+                -o jsonpath='{.metadata.uid}' 2>/dev/null || echo "")
+              if [ -n "$CURRENT_UID" ] && [ "$CURRENT_UID" != "$INITIAL_UID" ]; then
+                echo "Pod tls-will-expires-0 was restarted after ${ELAPSED}s" \
+                     "(new UID: $CURRENT_UID)"
+                exit 0
+              fi
+            done
+            echo "Pod tls-will-expires-0 was NOT restarted within ${TIMEOUT}s"
+            exit 1
           check:
             ($error == null): true
+      catch:
+        - script:
+            env:
+              - name: NAMESPACE
+                value: ($namespace)
+            content: |
+              echo "=== Pod state ==="
+              kubectl -n "$NAMESPACE" get pod tls-will-expires-0 -o yaml \
+                2>/dev/null || echo "Pod not found"
+              echo "=== Recent events ==="
+              kubectl -n "$NAMESPACE" get events \
+                --sort-by='.lastTimestamp' 2>/dev/null | tail -30
