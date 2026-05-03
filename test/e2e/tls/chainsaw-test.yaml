@@ -59,6 +59,10 @@ spec:
             INITIAL_UID=$(kubectl -n "$NAMESPACE" get pod tls-will-expires-0 \
               -o jsonpath='{.metadata.uid}')
             echo "Initial pod UID: $INITIAL_UID"
+            if [ -z "$INITIAL_UID" ]; then
+              echo "Failed to get initial pod UID"
+              exit 1
+            fi
 
             # The CSI plugin annotates the pod with an expiry time equal to
             # now + (jitteredCertLife - restartBuffer).  With certLife=60s,
