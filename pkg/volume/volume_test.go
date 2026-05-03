@@ -9,15 +9,15 @@ import (
 )
 
 const (
-	testPod                = "my-pod"
-	testNamespace          = "my-namespace"
-	testUID                = "my-uid"
-	testServiceAccount     = "my-service-account"
-	testEphemeral          = "true"
-	testProvisioner        = "my-provisioner"
-	testClass              = "my-class"
-	testListenerVolume     = "my-listener-volume"
-	testPassword           = "my-password"
+	testPod            = "my-pod"
+	testNamespace      = "my-namespace"
+	testUID            = "my-uid"
+	testServiceAccount = "my-service-account"
+	testEphemeral      = "true"
+	testProvisioner    = "my-provisioner"
+	testClass          = "my-class"
+	testListenerVolume = "my-listener-volume"
+	testPassword       = "my-password"
 )
 
 func TestSecretVolumeContextToMap(t *testing.T) {
