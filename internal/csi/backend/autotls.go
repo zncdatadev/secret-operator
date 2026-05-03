@@ -91,9 +91,8 @@ func NewAutoTlsBackend(config *BackendConfig) (IBackend, error) {
 }
 
 // use AutoTlsCertLifetime and AutoTlsCertJitterFactor to calculate the certificate lifetime
+// returns the jittered certificate lifetime (certLife * (1 - randomJitterFactor))
 func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
-	now := time.Now()
-
 	certLife := a.volumeContext.AutoTlsCertLifetime
 	if certLife == 0 {
 		logger.V(1).Info("certificate lifetime is not set, using default certificate lifetime", "defaultCertLifeTime", DefaultCertLifeTime)
@@ -122,7 +121,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 	}
 
 	randomJitterFactor := rand.Float64() * jitterFactor
-	jitterLife := time.Duration(float64(certLife) * jitterFactor)
+	jitterLife := time.Duration(float64(certLife) * randomJitterFactor)
 	jitteredCertLife := certLife - jitterLife
 
 	logger.V(1).Info("jittered certificate lifetime",
@@ -133,6 +132,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 		"randomJitterFactor", randomJitterFactor,
 	)
 
+	now := time.Now()
 	notAfter := now.Add(jitteredCertLife)
 	podExpires := notAfter.Add(-restarterBuffer)
 	if podExpires.Before(now) {
@@ -141,7 +141,7 @@ func (a *AutoTlsBackend) getCertLife() (time.Duration, error) {
 		)
 	}
 
-	return certLife, nil
+	return jitteredCertLife, nil
 }
 
 func (a *AutoTlsBackend) certificateFormat() volume.SecretFormat {
@@ -227,11 +227,17 @@ func (a *AutoTlsBackend) GetSecretData(ctx context.Context) (*util.SecretContent
 		return nil, err
 	}
 
-	expiresTime := notAfter
+	// The pod should be restarted before the certificate expires so that a fresh
+	// certificate is provisioned while the current one is still valid.
+	restarterBuffer := a.volumeContext.AutoTlsCertRestartBuffer
+	if restarterBuffer == 0 {
+		restarterBuffer = DefaultCertBuffer
+	}
+	restartAt := notAfter.Add(-restarterBuffer)
 
 	return &util.SecretContent{
 		Data:        data,
-		ExpiresTime: &expiresTime,
+		ExpiresTime: &restartAt,
 	}, nil
 }
 

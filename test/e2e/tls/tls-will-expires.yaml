@@ -16,6 +16,7 @@ spec:
       labels:
         name: tls-will-expires
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: tls-will-expires
         image: caddy:2
