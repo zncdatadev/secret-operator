@@ -364,8 +364,9 @@ setup-chainsaw-cluster: ## Set up a Kind cluster for e2e tests if it does not ex
 	fi
 
 .PHONY: setup-chainsaw-e2e
-setup-chainsaw-e2e: chainsaw docker-build ## Run the chainsaw setup
+setup-chainsaw-e2e: chainsaw docker-build csi-docker-build ## Run the chainsaw setup
 	"$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(IMG)"
+	"$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(CSIDRIVER_IMG)"
 	KUBECONFIG=$(CHAINSAW_KUBECONFIG) $(MAKE) deploy
 
 
