@@ -8,6 +8,18 @@ import (
 	"github.com/zncdatadev/operator-go/pkg/constants"
 )
 
+const (
+	testPod            = "my-pod"
+	testNamespace      = "my-namespace"
+	testUID            = "my-uid"
+	testServiceAccount = "my-service-account"
+	testEphemeral      = "true"
+	testProvisioner    = "my-provisioner"
+	testClass          = "my-class"
+	testListenerVolume = "my-listener-volume"
+	testPassword       = "my-password"
+)
+
 func TestSecretVolumeContextToMap(t *testing.T) {
 
 	tests := []struct {
@@ -23,37 +35,37 @@ func TestSecretVolumeContextToMap(t *testing.T) {
 		{
 			name: "full",
 			a: SecretVolumeContext{
-				Pod:                "my-pod",
-				PodNamespace:       "my-namespace",
-				PodUID:             "my-uid",
-				ServiceAccountName: "my-service-account",
-				Ephemeral:          "true",
-				Provisioner:        "my-provisioner",
-				Class:              "my-class",
+				Pod:                testPod,
+				PodNamespace:       testNamespace,
+				PodUID:             testUID,
+				ServiceAccountName: testServiceAccount,
+				Ephemeral:          testEphemeral,
+				Provisioner:        testProvisioner,
+				Class:              testClass,
 				Scope: SecretScope{
 					Pod:             ScopePod,
 					Node:            ScopeNode,
 					Services:        []string{"my-service"},
-					ListenerVolumes: []string{"my-listener-volume"},
+					ListenerVolumes: []string{testListenerVolume},
 				},
-				Format:                   "tls-pem",
-				TlsPKCS12Password:        "my-password",
+				Format:                   SecretFormatTLSPEM,
+				TlsPKCS12Password:        testPassword,
 				KerberosServiceNames:     []string{"realm1", "realm2"},
 				AutoTlsCertLifetime:      24 * time.Hour,
 				AutoTlsCertJitterFactor:  0.1,
 				AutoTlsCertRestartBuffer: 5 * time.Minute,
 			},
 			want: map[string]string{
-				CSIStoragePodName:                               "my-pod",
-				CSIStoragePodNamespace:                          "my-namespace",
-				CSIStoragePodUid:                                "my-uid",
-				CSIStorageServiceAccountName:                    "my-service-account",
-				CSIStorageEphemeral:                             "true",
-				StorageKubernetesCSIProvisionerIdentity:         "my-provisioner",
-				constants.AnnotationSecretsClass:                "my-class",
+				CSIStoragePodName:                               testPod,
+				CSIStoragePodNamespace:                          testNamespace,
+				CSIStoragePodUid:                                testUID,
+				CSIStorageServiceAccountName:                    testServiceAccount,
+				CSIStorageEphemeral:                             testEphemeral,
+				StorageKubernetesCSIProvisionerIdentity:         testProvisioner,
+				constants.AnnotationSecretsClass:                testClass,
 				constants.AnnotationSecretsScope:                "pod,node,service=my-service,listener-volume=my-listener-volume",
-				constants.AnnotationSecretsFormat:               "tls-pem",
-				constants.AnnotationSecretsPKCS12Password:       "my-password",
+				constants.AnnotationSecretsFormat:               string(SecretFormatTLSPEM),
+				constants.AnnotationSecretsPKCS12Password:       testPassword,
 				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
 				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
@@ -65,7 +77,7 @@ func TestSecretVolumeContextToMap(t *testing.T) {
 			a: SecretVolumeContext{
 				Scope: SecretScope{
 					Node:            ScopeNode,
-					ListenerVolumes: []string{"my-listener-volume"},
+					ListenerVolumes: []string{testListenerVolume},
 				},
 			},
 			want: map[string]string{
@@ -100,37 +112,37 @@ func TestNewvolumeContextFromMap(t *testing.T) {
 		{
 			name: "full",
 			parameters: map[string]string{
-				CSIStoragePodName:                               "my-pod",
-				CSIStoragePodNamespace:                          "my-namespace",
-				CSIStoragePodUid:                                "my-uid",
-				CSIStorageServiceAccountName:                    "my-service-account",
-				CSIStorageEphemeral:                             "true",
-				VolumeKubernetesStorageProvisioner:              "my-provisioner",
-				constants.AnnotationSecretsClass:                "my-class",
+				CSIStoragePodName:                               testPod,
+				CSIStoragePodNamespace:                          testNamespace,
+				CSIStoragePodUid:                                testUID,
+				CSIStorageServiceAccountName:                    testServiceAccount,
+				CSIStorageEphemeral:                             testEphemeral,
+				VolumeKubernetesStorageProvisioner:              testProvisioner,
+				constants.AnnotationSecretsClass:                testClass,
 				constants.AnnotationSecretsScope:                "pod,node,service=my-service,listener-volume=my-listener-volume",
-				constants.AnnotationSecretsFormat:               "tls-pem",
-				constants.AnnotationSecretsPKCS12Password:       "my-password",
+				constants.AnnotationSecretsFormat:               string(SecretFormatTLSPEM),
+				constants.AnnotationSecretsPKCS12Password:       testPassword,
 				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
 				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
 				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
 				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
 			expected: &SecretVolumeContext{
-				Pod:                "my-pod",
-				PodNamespace:       "my-namespace",
-				PodUID:             "my-uid",
-				ServiceAccountName: "my-service-account",
-				Ephemeral:          "true",
-				Provisioner:        "my-provisioner",
-				Class:              "my-class",
+				Pod:                testPod,
+				PodNamespace:       testNamespace,
+				PodUID:             testUID,
+				ServiceAccountName: testServiceAccount,
+				Ephemeral:          testEphemeral,
+				Provisioner:        testProvisioner,
+				Class:              testClass,
 				Scope: SecretScope{
 					Pod:             ScopePod,
 					Node:            ScopeNode,
 					Services:        []string{"my-service"},
-					ListenerVolumes: []string{"my-listener-volume"},
+					ListenerVolumes: []string{testListenerVolume},
 				},
-				Format:                   "tls-pem",
-				TlsPKCS12Password:        "my-password",
+				Format:                   SecretFormatTLSPEM,
+				TlsPKCS12Password:        testPassword,
 				KerberosServiceNames:     []string{"realm1", "realm2"},
 				AutoTlsCertLifetime:      24 * time.Hour,
 				AutoTlsCertJitterFactor:  0.1,

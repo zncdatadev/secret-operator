@@ -211,6 +211,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	cd config/csi && "$(KUSTOMIZE)" edit set image csi-plugin=$(CSIDRIVER_IMG)
 	"$(KUSTOMIZE)" build config/default | "$(KUBECTL)" apply -f -
 	"$(KUSTOMIZE)" build config/samples | kubectl apply -f -
 
@@ -364,8 +365,9 @@ setup-chainsaw-cluster: ## Set up a Kind cluster for e2e tests if it does not ex
 	fi
 
 .PHONY: setup-chainsaw-e2e
-setup-chainsaw-e2e: chainsaw docker-build ## Run the chainsaw setup
+setup-chainsaw-e2e: chainsaw docker-build csi-docker-build ## Run the chainsaw setup
 	"$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(IMG)"
+	"$(KIND)" --name $(CHAINSAW_CLUSTER) load docker-image "$(CSIDRIVER_IMG)"
 	KUBECONFIG=$(CHAINSAW_KUBECONFIG) $(MAKE) deploy
 
 
