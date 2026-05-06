@@ -305,6 +305,15 @@ jobs:
           make docker-build
           make csi-docker-build
 
+      - name: Create kind cluster
+        if: steps.check-changes.outputs.changed == 'true'
+        uses: helm/kind-action@v1.14.0
+
+      - name: Load images to cluster
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          kind load docker-image quay.io/zncdatadev/secret-operator:$VERSION quay.io/zncdatadev/secret-csi-driver:$VERSION
+
       - name: Run chart-testing (install)
         if: steps.check-changes.outputs.changed == 'true'
         run: |
