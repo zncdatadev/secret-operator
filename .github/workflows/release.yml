@@ -340,6 +340,19 @@ jobs:
             --set image.csiDriver.tag=$VERSION \
             ./target/charts/secret-operator-$VERSION.tgz
 
+      - name: Debug: dump operator status
+        run: |
+          echo "=== Commons Operator Pods ==="
+          kubectl -n kubedoop-operators get pods -o wide
+          echo "=== Commons Operator Logs ==="
+          kubectl -n kubedoop-operators logs -l app.kubernetes.io/name=commons-operator --tail=50
+          echo "=== Secret Operator Pods ==="
+          kubectl -n secret-operator get pods -o wide
+          echo "=== ClusterRoles ==="
+          kubectl get clusterrole | grep -E 'commons|secret'
+          echo "=== ClusterRoleBindings ==="
+          kubectl get clusterrolebinding | grep -E 'commons|secret'
+
       - name: Run e2e tests
         run: |
           make chainsaw
