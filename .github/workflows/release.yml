@@ -356,7 +356,7 @@ jobs:
       - name: Run e2e tests
         run: |
           make chainsaw
-          ./bin/chainsaw test --test-dir ./test/e2e/
+          ./bin/chainsaw test --config ./test/e2e/.chainsaw.yaml --test-dir ./test/e2e/
 
 
   release-chart:
