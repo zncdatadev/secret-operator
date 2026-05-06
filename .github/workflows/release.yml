@@ -184,7 +184,8 @@ jobs:
         run: ah lint
 
 
-  chart-lint-test:
+  chart-lint-helm:
+    name: Chart Lint Helm
     runs-on: ubuntu-latest
     needs:
       - check-crds-sync
@@ -292,54 +293,55 @@ jobs:
             --target-branch "${{ steps.commit-range.outputs.target_branch }}" \
             --config ./.github/configs/ct-lint.yaml
 
+  chart-e2e:
+    name: Chart E2E
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
       - name: Create kind cluster
-        if: steps.check-changes.outputs.changed == 'true'
         uses: helm/kind-action@v1.14.0
         with:
-          cluster_name: kind  # Default cluster name is 'chart-testing'
+          cluster_name: kind
 
       - name: Load images to cluster
-        if: steps.check-changes.outputs.changed == 'true'
         run: |
           make docker-build
           make csi-docker-build
           kind load docker-image quay.io/zncdatadev/secret-operator:$VERSION quay.io/zncdatadev/secret-csi-driver:$VERSION
 
-      - name: Run chart-testing (install)
-        id: ct-test
-        if: steps.check-changes.outputs.changed == 'true'
-        run: |
-          ct install \
-            --since "${{ steps.commit-range.outputs.since_commit }}" \
-            --target-branch "${{ steps.commit-range.outputs.target_branch }}" \
-            --config ./.github/configs/ct-install.yaml
-          # Save success result to github output
-          if [[ $? -eq 0 ]]; then
-            echo "ct_tested=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build helm chart
-        if: steps.ct-test.outputs.ct_tested == 'true'
         run: |
           make helm-chart-package
 
-      - name: Run e2e with chart
-        if: steps.ct-test.outputs.ct_tested == 'true'
+      - name: Install operator dependencies
         run: |
           HELM_DEPENDENCIES=(
             commons-operator
             listener-operator
           )
 
-          # Install dependencies
           for dep in "${HELM_DEPENDENCIES[@]}"; do
             helm upgrade --install --create-namespace --namespace kubedoop-operators --wait $dep oci://quay.io/kubedoopcharts/$dep --version $VERSION
           done
 
-          # Install packaged operator chart
-          helm install --create-namespace --namespace secret-operator --wait secret-operator ./target/charts/secret-operator-$VERSION.tgz
+      - name: Install operator chart
+        run: |
+          helm upgrade --install --create-namespace --namespace secret-operator --wait secret-operator \
+            --set image.csiDriver.tag=$VERSION \
+            ./target/charts/secret-operator-$VERSION.tgz
 
-          # E2E tests
+      - name: Run e2e tests
+        run: |
           make chainsaw
           ./bin/chainsaw test --test-dir ./test/e2e/
 
@@ -350,7 +352,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - chart-linter-artifacthub
-      - chart-lint-test
+      - chart-lint-helm
+      - chart-e2e
     steps:
       - name: Clone the code
         uses: actions/checkout@v6
