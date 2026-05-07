@@ -115,7 +115,8 @@ runs the following jobs:
   (1.33, 1.34, 1.35)
 - **CRD Sync Check** — Verifies CRDs are in sync with manifests
 - **Chart Linter (Artifact Hub)** — Validates Helm chart metadata
-- **Chart Lint & Test** — Validates and tests the Helm chart
+- **Chart Lint Helm** — Validates the Helm chart with ct lint and installs it with ct install
+- **Chart E2E** — Runs Chainsaw E2E tests against a Helm-installed release
 - **Release Image** — Builds and pushes two multi-arch Docker images to
   `quay.io/zncdatadev/secret-operator:<version>` (operator) and
   `quay.io/zncdatadev/secret-csi-driver:<version>` (CSI driver), and signs
@@ -167,7 +168,7 @@ git push upstream 0.4.0
 
 ### Chart release failed
 
-If the `chart-lint-test` or `release-chart` job fails, check the workflow logs
+If the `chart-lint-helm` or `release-chart` job fails, check the workflow logs
 for details. Common issues include:
 
 - **CRDs out of sync**: Run `make manifests` and `make helm-crd-sync` to
