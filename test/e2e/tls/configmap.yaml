@@ -32,7 +32,7 @@ data:
     ACTUAL_RSA_LENGTH=$(echo "$KEY_INFO" | grep -E "(RSA )?Private-Key:" | sed -E 's/.*\(([0-9]+) bit.*/\1/')
 
     # Validate that we got a numeric value
-    if ! [[ "$ACTUAL_RSA_LENGTH" =~ ^[0-9]+$ ]]; then
+    if ! echo "$ACTUAL_RSA_LENGTH" | grep -qE '^[0-9]+$'; then
       echo "Failed to extract key length from private key" >&2
       echo "Key info: $KEY_INFO" >&2
       exit 1
@@ -70,7 +70,7 @@ data:
       check_lists=($svc_san $listener_san)
 
       for check in ${check_lists[@]}; do
-        if [[ $tls_san != *$check* ]]; then
+        if ! echo "$tls_san" | grep -qF "$check"; then
           echo "tls_san does not contain $check" >&2
           return 1
         fi
