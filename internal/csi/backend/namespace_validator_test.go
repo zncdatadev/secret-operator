@@ -8,6 +8,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	testNamespaceA  = "ns-a"
+	testSecretClass = "test-sc"
+	testCASecret    = "ca-secret"
+	testAppNS       = "app-ns"
+	testKeytab      = "keytab"
+	testPlatformNS  = "platform-ns"
+)
+
 func TestValidateCrossNamespaceReferences_Allowed(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -17,16 +26,16 @@ func TestValidateCrossNamespaceReferences_Allowed(t *testing.T) {
 	}{
 		{
 			name:         "no cross-namespace references in kerberos backend",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
 							AdminKeytabSecret: &secretsv1alpha1.KeytabSecretSpec{
 								Name:      "my-keytab",
-								Namespace: "ns-a",
+								Namespace: testNamespaceA,
 							},
 						},
 					},
@@ -35,24 +44,24 @@ func TestValidateCrossNamespaceReferences_Allowed(t *testing.T) {
 		},
 		{
 			name:         "autotls backend with same namespace",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						AutoTls: &secretsv1alpha1.AutoTlsSpec{
 							CA: &secretsv1alpha1.CASpec{
 								Secret: &secretsv1alpha1.SecretSpec{
-									Name:      "ca-secret",
-									Namespace: "ns-a",
+									Name:      testCASecret,
+									Namespace: testNamespaceA,
 								},
 							},
 							AdditionalTrustRoots: []secretsv1alpha1.AdditionalTrustRootSpec{
 								{
 									Secret: &secretsv1alpha1.SecretSpec{
 										Name:      "trust-secret",
-										Namespace: "ns-a",
+										Namespace: testNamespaceA,
 									},
 								},
 							},
@@ -63,10 +72,10 @@ func TestValidateCrossNamespaceReferences_Allowed(t *testing.T) {
 		},
 		{
 			name:         "k8sSearch with Pod mode (no explicit namespace)",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						K8sSearch: &secretsv1alpha1.K8sSearchSpec{
@@ -80,10 +89,10 @@ func TestValidateCrossNamespaceReferences_Allowed(t *testing.T) {
 		},
 		{
 			name:         "nil backend - no error",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec:       secretsv1alpha1.SecretClassSpec{},
 			},
 		},
@@ -101,19 +110,19 @@ func TestValidateCrossNamespaceReferences_Allowed(t *testing.T) {
 
 func TestValidateCrossNamespaceReferences_Denied(t *testing.T) {
 	tests := []struct {
-		name              string
-		podNamespace      string
-		secretClass       *secretsv1alpha1.SecretClass
-		volumeCtx         *volume.SecretVolumeContext
-		expectedField     string
-		expectedReqNs     string
+		name          string
+		podNamespace  string
+		secretClass   *secretsv1alpha1.SecretClass
+		volumeCtx     *volume.SecretVolumeContext
+		expectedField string
+		expectedReqNs string
 	}{
 		{
 			name:         "kerberos backend cross-namespace denied",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
@@ -126,20 +135,20 @@ func TestValidateCrossNamespaceReferences_Denied(t *testing.T) {
 				},
 			},
 			expectedField: "kerberosKeytab.adminKeytabSecret.namespace",
-			expectedReqNs:  "ns-b",
+			expectedReqNs: "ns-b",
 		},
 		{
 			name:         "autotls CA secret cross-namespace denied",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						AutoTls: &secretsv1alpha1.AutoTlsSpec{
 							CA: &secretsv1alpha1.CASpec{
 								Secret: &secretsv1alpha1.SecretSpec{
-									Name:      "ca-secret",
+									Name:      testCASecret,
 									Namespace: "platform",
 								},
 							},
@@ -148,21 +157,21 @@ func TestValidateCrossNamespaceReferences_Denied(t *testing.T) {
 				},
 			},
 			expectedField: "autoTls.ca.secret.namespace",
-			expectedReqNs:  "platform",
+			expectedReqNs: "platform",
 		},
 		{
 			name:         "autotls additional trust root configmap cross-namespace denied",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						AutoTls: &secretsv1alpha1.AutoTlsSpec{
 							CA: &secretsv1alpha1.CASpec{
 								Secret: &secretsv1alpha1.SecretSpec{
-									Name:      "ca-secret",
-									Namespace: "ns-a",
+									Name:      testCASecret,
+									Namespace: testNamespaceA,
 								},
 							},
 							AdditionalTrustRoots: []secretsv1alpha1.AdditionalTrustRootSpec{
@@ -178,27 +187,27 @@ func TestValidateCrossNamespaceReferences_Denied(t *testing.T) {
 				},
 			},
 			expectedField: "autoTls.additionalTrustRoots[0].configMap.namespace",
-			expectedReqNs:  "other-ns",
+			expectedReqNs: "other-ns",
 		},
 		{
 			name:         "k8sSearch explicit namespace cross-namespace denied",
-			podNamespace: "ns-a",
-			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: "ns-a"},
+			podNamespace: testNamespaceA,
+			volumeCtx:    &volume.SecretVolumeContext{PodNamespace: testNamespaceA},
 			secretClass: &secretsv1alpha1.SecretClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-sc"},
+				ObjectMeta: metav1.ObjectMeta{Name: testSecretClass},
 				Spec: secretsv1alpha1.SecretClassSpec{
 					Backend: &secretsv1alpha1.BackendSpec{
 						K8sSearch: &secretsv1alpha1.K8sSearchSpec{
 							SearchNamespace: &secretsv1alpha1.SearchNamespaceSpec{
 								Name: strPtr("ns-c"),
-								Pod: &secretsv1alpha1.PodSpec{},
+								Pod:  &secretsv1alpha1.PodSpec{},
 							},
 						},
 					},
 				},
 			},
 			expectedField: "k8sSearch.searchNamespace.name",
-			expectedReqNs:  "ns-c",
+			expectedReqNs: "ns-c",
 		},
 	}
 
@@ -226,7 +235,7 @@ func TestValidateCrossNamespaceReferences_Denied(t *testing.T) {
 }
 
 func TestValidateCrossNamespaceReferences_AllowedNamespacesAnnotation(t *testing.T) {
-	podNs := "app-ns"
+	podNs := testAppNS
 	volumeCtx := &volume.SecretVolumeContext{PodNamespace: podNs}
 
 	sc := &secretsv1alpha1.SecretClass{
@@ -240,8 +249,8 @@ func TestValidateCrossNamespaceReferences_AllowedNamespacesAnnotation(t *testing
 			Backend: &secretsv1alpha1.BackendSpec{
 				KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
 					AdminKeytabSecret: &secretsv1alpha1.KeytabSecretSpec{
-						Name:      "keytab",
-						Namespace: "platform-ns",
+						Name:      testKeytab,
+						Namespace: testPlatformNS,
 					},
 				},
 			},
@@ -256,21 +265,21 @@ func TestValidateCrossNamespaceReferences_AllowedNamespacesAnnotation(t *testing
 }
 
 func TestValidateCrossNamespaceReferences_AllowedNamespacesAnnotation_StillDenied(t *testing.T) {
-	podNs := "app-ns"
+	podNs := testAppNS
 	volumeCtx := &volume.SecretVolumeContext{PodNamespace: podNs}
 
 	sc := &secretsv1alpha1.SecretClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "shared-sc",
 			Annotations: map[string]string{
-				AllowedNamespacesAnnotation: "platform-ns",
+				AllowedNamespacesAnnotation: testPlatformNS,
 			},
 		},
 		Spec: secretsv1alpha1.SecretClassSpec{
 			Backend: &secretsv1alpha1.BackendSpec{
 				KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
 					AdminKeytabSecret: &secretsv1alpha1.KeytabSecretSpec{
-						Name:      "keytab",
+						Name:      testKeytab,
 						Namespace: "attacker-ns",
 					},
 				},
@@ -294,26 +303,26 @@ func TestResolveAllowedNamespaces(t *testing.T) {
 	}{
 		{
 			name:          "no annotation - only pod namespace",
-			podNamespace:  "ns-a",
+			podNamespace:  testNamespaceA,
 			annotations:   nil,
 			expectedCount: 1,
 		},
 		{
 			name:          "empty annotation - only pod namespace",
-			podNamespace:  "ns-a",
+			podNamespace:  testNamespaceA,
 			annotations:   map[string]string{AllowedNamespacesAnnotation: ""},
 			expectedCount: 1,
 		},
 		{
-			name:         "whitelist with multiple namespaces",
-			podNamespace: "ns-a",
-			annotations:  map[string]string{AllowedNamespacesAnnotation: "ns-b, ns-c, ns-d"},
+			name:          "whitelist with multiple namespaces",
+			podNamespace:  testNamespaceA,
+			annotations:   map[string]string{AllowedNamespacesAnnotation: "ns-b, ns-c, ns-d"},
 			expectedCount: 4, // pod ns + 3 whitelisted
 		},
 		{
-			name:         "whitelist with whitespace",
-			podNamespace: "ns-a",
-			annotations:  map[string]string{AllowedNamespacesAnnotation: " ns-b , ns-c "},
+			name:          "whitelist with whitespace",
+			podNamespace:  testNamespaceA,
+			annotations:   map[string]string{AllowedNamespacesAnnotation: " ns-b , ns-c "},
 			expectedCount: 3,
 		},
 	}
@@ -336,7 +345,7 @@ func TestResolveAllowedNamespaces(t *testing.T) {
 
 func TestBlockedSystemNamespaces(t *testing.T) {
 	// Even with an explicit whitelist, system namespaces must always be blocked.
-	podNs := "app-ns"
+	podNs := testAppNS
 	volumeCtx := &volume.SecretVolumeContext{PodNamespace: podNs}
 
 	sc := &secretsv1alpha1.SecretClass{
@@ -350,8 +359,8 @@ func TestBlockedSystemNamespaces(t *testing.T) {
 			Backend: &secretsv1alpha1.BackendSpec{
 				KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
 					AdminKeytabSecret: &secretsv1alpha1.KeytabSecretSpec{
-						Name:      "keytab",
-						Namespace: "kube-system",
+						Name:      testKeytab,
+						Namespace: blockedNamespaceKubeSystem,
 					},
 				},
 			},
@@ -366,14 +375,14 @@ func TestBlockedSystemNamespaces(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected NamespaceValidationError, got %T: %v", err, err)
 	}
-	if nsErr.RequestedNamespace != "kube-system" {
+	if nsErr.RequestedNamespace != blockedNamespaceKubeSystem {
 		t.Errorf("expected requested namespace 'kube-system', got %q", nsErr.RequestedNamespace)
 	}
 }
 
 func TestBlockedSystemNamespaces_AllOtherWhitelisted(t *testing.T) {
 	// System namespace blocked, but normal cross-namespace still works.
-	podNs := "app-ns"
+	podNs := testAppNS
 	volumeCtx := &volume.SecretVolumeContext{PodNamespace: podNs}
 
 	sc := &secretsv1alpha1.SecretClass{
@@ -387,8 +396,8 @@ func TestBlockedSystemNamespaces_AllOtherWhitelisted(t *testing.T) {
 			Backend: &secretsv1alpha1.BackendSpec{
 				KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
 					AdminKeytabSecret: &secretsv1alpha1.KeytabSecretSpec{
-						Name:      "keytab",
-						Namespace: "platform-ns",
+						Name:      testKeytab,
+						Namespace: testPlatformNS,
 					},
 				},
 			},
@@ -405,12 +414,12 @@ func TestBlockedSystemNamespaces_AllOtherWhitelisted(t *testing.T) {
 func TestBlockedSystemNamespaces_KubePublicAndNodeLease(t *testing.T) {
 	for _, blockedNs := range []string{"kube-public", "kube-node-lease"} {
 		t.Run(blockedNs, func(t *testing.T) {
-			podNs := "app-ns"
+			podNs := testAppNS
 			volumeCtx := &volume.SecretVolumeContext{PodNamespace: podNs}
 
 			sc := &secretsv1alpha1.SecretClass{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-sc",
+					Name: testSecretClass,
 					Annotations: map[string]string{
 						AllowedNamespacesAnnotation: blockedNs,
 					},
@@ -419,7 +428,7 @@ func TestBlockedSystemNamespaces_KubePublicAndNodeLease(t *testing.T) {
 					Backend: &secretsv1alpha1.BackendSpec{
 						KerberosKeytab: &secretsv1alpha1.KerberosKeytabSpec{
 							AdminKeytabSecret: &secretsv1alpha1.KeytabSecretSpec{
-								Name:      "keytab",
+								Name:      testKeytab,
 								Namespace: blockedNs,
 							},
 						},

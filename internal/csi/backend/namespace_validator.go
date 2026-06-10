@@ -13,22 +13,26 @@ const (
 	// a comma-separated list of namespaces allowed for cross-namespace references.
 	// If not set, only the Pod's own namespace is allowed.
 	AllowedNamespacesAnnotation = "secrets.kubedoop.dev/allowed-namespaces"
+
+	// blockedNamespaceKubeSystem is the Kubernetes system namespace that must never
+	// be used as a cross-namespace reference target.
+	blockedNamespaceKubeSystem = "kube-system"
 )
 
 // blockedNamespaces are system namespaces that are never allowed as cross-namespace
 // reference targets, regardless of the SecretClass annotation whitelist.
 var blockedNamespaces = map[string]bool{
-	"kube-system":    true,
-	"kube-public":    true,
-	"kube-node-lease": true,
+	blockedNamespaceKubeSystem: true,
+	"kube-public":              true,
+	"kube-node-lease":          true,
 }
 
 // NamespaceValidationError represents a cross-namespace reference policy violation.
 type NamespaceValidationError struct {
-	PodNamespace     string
+	PodNamespace       string
 	RequestedNamespace string
 	SecretClassName    string
-	Field             string
+	Field              string
 }
 
 func (e *NamespaceValidationError) Error() string {
@@ -68,14 +72,13 @@ func ValidateCrossNamespaceReferences(secretClass *secretsv1alpha1.SecretClass, 
 		ns := backend.KerberosKeytab.AdminKeytabSecret.Namespace
 		if !isAllowedNamespace(ns, allowed) {
 			return &NamespaceValidationError{
-				PodNamespace:      podNamespace,
+				PodNamespace:       podNamespace,
 				RequestedNamespace: ns,
-				SecretClassName:   className,
-				Field:            "kerberosKeytab.adminKeytabSecret.namespace",
+				SecretClassName:    className,
+				Field:              "kerberosKeytab.adminKeytabSecret.namespace",
 			}
 		}
 	}
-
 
 	// Validate AutoTLS backend: CA.Secret.Namespace and AdditionalTrustRoots
 	if backend.AutoTls != nil {
@@ -84,10 +87,10 @@ func ValidateCrossNamespaceReferences(secretClass *secretsv1alpha1.SecretClass, 
 			ns := backend.AutoTls.CA.Secret.Namespace
 			if !isAllowedNamespace(ns, allowed) {
 				return &NamespaceValidationError{
-					PodNamespace:      podNamespace,
+					PodNamespace:       podNamespace,
 					RequestedNamespace: ns,
-					SecretClassName:   className,
-					Field:            "autoTls.ca.secret.namespace",
+					SecretClassName:    className,
+					Field:              "autoTls.ca.secret.namespace",
 				}
 			}
 		}
@@ -100,10 +103,10 @@ func ValidateCrossNamespaceReferences(secretClass *secretsv1alpha1.SecretClass, 
 				ns := root.ConfigMap.Namespace
 				if !isAllowedNamespace(ns, allowed) {
 					return &NamespaceValidationError{
-						PodNamespace:      podNamespace,
+						PodNamespace:       podNamespace,
 						RequestedNamespace: ns,
-						SecretClassName:   className,
-						Field:            fieldPrefix + ".configMap.namespace",
+						SecretClassName:    className,
+						Field:              fieldPrefix + ".configMap.namespace",
 					}
 				}
 			}
@@ -112,10 +115,10 @@ func ValidateCrossNamespaceReferences(secretClass *secretsv1alpha1.SecretClass, 
 				ns := root.Secret.Namespace
 				if !isAllowedNamespace(ns, allowed) {
 					return &NamespaceValidationError{
-						PodNamespace:      podNamespace,
+						PodNamespace:       podNamespace,
 						RequestedNamespace: ns,
-						SecretClassName:   className,
-						Field:            fieldPrefix + ".secret.namespace",
+						SecretClassName:    className,
+						Field:              fieldPrefix + ".secret.namespace",
 					}
 				}
 			}
@@ -129,10 +132,10 @@ func ValidateCrossNamespaceReferences(secretClass *secretsv1alpha1.SecretClass, 
 			ns := *backend.K8sSearch.SearchNamespace.Name
 			if !isAllowedNamespace(ns, allowed) {
 				return &NamespaceValidationError{
-					PodNamespace:      podNamespace,
+					PodNamespace:       podNamespace,
 					RequestedNamespace: ns,
-					SecretClassName:   className,
-					Field:            "k8sSearch.searchNamespace.name",
+					SecretClassName:    className,
+					Field:              "k8sSearch.searchNamespace.name",
 				}
 			}
 		}
