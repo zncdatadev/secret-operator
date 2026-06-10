@@ -94,6 +94,20 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// Validate cross-namespace references in SecretClass spec.
+	// This prevents a Pod in namespace A from reading secrets/configmaps
+	// in namespace B through the operator's elevated ClusterRole permissions.
+	if err := secretbackend.ValidateCrossNamespaceReferences(secretClass, volumeContext); err != nil {
+		logger.Info("namespace access denied",
+			"podNamespace", volumeContext.PodNamespace,
+			"podName", volumeContext.Pod,
+			"secretClassName", volumeContext.Class,
+			"volumeID", volumeID,
+			"reason", err.Error(),
+		)
+		return nil, status.Error(codes.PermissionDenied, err.Error())
+	}
+
 	// get the pod
 	pod := &corev1.Pod{}
 	if err := n.client.Get(ctx, client.ObjectKey{
