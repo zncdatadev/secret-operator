@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zncdatadev/operator-go/pkg/constants"
+	opsecurity "github.com/zncdatadev/operator-go/pkg/security"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -102,29 +102,29 @@ func (v SecretVolumeContext) ToMap() map[string]string {
 		out[StorageKubernetesCSIProvisionerIdentity] = v.Provisioner
 	}
 	if v.Class != "" {
-		out[constants.AnnotationSecretsClass] = v.Class
+		out[opsecurity.SecretClassAnnotation] = v.Class
 	}
 	if v.encodeScope() != "" {
-		out[constants.AnnotationSecretsScope] = v.encodeScope()
+		out[opsecurity.SecretClassScopeAnnotation] = v.encodeScope()
 	}
 	if v.Format != "" {
-		out[constants.AnnotationSecretsFormat] = string(v.Format)
+		out[opsecurity.AnnotationSecretsFormat] = string(v.Format)
 	}
 	if len(v.KerberosServiceNames) > 0 {
-		out[constants.AnnotationSecretsKerberosServiceNames] =
+		out[opsecurity.AnnotationSecretsKerberosServiceNames] =
 			strings.Join(v.KerberosServiceNames, KerberosServiceNamesSplitter)
 	}
 	if v.TlsPKCS12Password != "" {
-		out[constants.AnnotationSecretsPKCS12Password] = v.TlsPKCS12Password
+		out[opsecurity.AnnotationSecretsPKCS12Password] = v.TlsPKCS12Password
 	}
 	if v.AutoTlsCertLifetime != 0 {
-		out[constants.AnnotationSecretCertLifeTime] = v.AutoTlsCertLifetime.String()
+		out[opsecurity.AnnotationSecretsCertLifetime] = v.AutoTlsCertLifetime.String()
 	}
 	if v.AutoTlsCertJitterFactor != 0 {
-		out[constants.AnnotationSecretsCertJitterFactor] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
+		out[opsecurity.AnnotationSecretsCertJitterFactor] = fmt.Sprintf("%f", v.AutoTlsCertJitterFactor)
 	}
 	if v.AutoTlsCertRestartBuffer != 0 {
-		out[constants.AnnotationSecretsCertRestartBuffer] = v.AutoTlsCertRestartBuffer.String()
+		out[opsecurity.AnnotationSecretsCertRestartBuffer] = v.AutoTlsCertRestartBuffer.String()
 	}
 	return out
 }
@@ -197,29 +197,29 @@ func NewvolumeContextFromMap(parameters map[string]string) (*SecretVolumeContext
 				"reference", "https://kubernetes.io/docs/reference/labels-annotations-taints/"+
 					"#volume-beta-kubernetes-io-storage-provisioner-deprecated",
 			)
-		case constants.AnnotationSecretsClass:
+		case opsecurity.SecretClassAnnotation:
 			v.Class = value
-		case constants.AnnotationSecretsScope:
+		case opsecurity.SecretClassScopeAnnotation:
 			v.Scope = v.decodeScope(value)
-		case constants.AnnotationSecretsFormat:
+		case opsecurity.AnnotationSecretsFormat:
 			v.Format = SecretFormat(value)
-		case constants.AnnotationSecretsKerberosServiceNames:
+		case opsecurity.AnnotationSecretsKerberosServiceNames:
 			v.KerberosServiceNames = strings.Split(value, KerberosServiceNamesSplitter)
-		case constants.AnnotationSecretsPKCS12Password:
+		case opsecurity.AnnotationSecretsPKCS12Password:
 			v.TlsPKCS12Password = value
-		case constants.AnnotationSecretCertLifeTime:
+		case opsecurity.AnnotationSecretsCertLifetime:
 			d, err := time.ParseDuration(value)
 			if err != nil {
 				return nil, err
 			}
 			v.AutoTlsCertLifetime = d
-		case constants.AnnotationSecretsCertJitterFactor:
+		case opsecurity.AnnotationSecretsCertJitterFactor:
 			f, err := fmt.Sscanf(value, "%f", &v.AutoTlsCertJitterFactor)
 			if err != nil || f != 1 {
 				return nil, fmt.Errorf("failed to parse jitter factor: %s", value)
 			}
 
-		case constants.AnnotationSecretsCertRestartBuffer:
+		case opsecurity.AnnotationSecretsCertRestartBuffer:
 			d, err := time.ParseDuration(value)
 			if err != nil {
 				return nil, err
