@@ -8,7 +8,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/go-logr/logr"
-	"github.com/zncdatadev/operator-go/pkg/constants"
+	opsecurity "github.com/zncdatadev/operator-go/pkg/security"
 	"github.com/zncdatadev/secret-operator/internal/csi/backend"
 	"github.com/zncdatadev/secret-operator/pkg/pod_info"
 	"github.com/zncdatadev/secret-operator/pkg/volume"
@@ -148,8 +148,8 @@ func (c *ControllerServer) getVolumeContext(pvc *corev1.PersistentVolumeClaim) (
 		return nil, err
 	}
 
-	if _, ok := annotation[constants.AnnotationSecretsClass]; !ok {
-		return nil, fmt.Errorf("required annotation %s is missing", constants.AnnotationSecretsClass)
+	if _, ok := annotation[opsecurity.SecretClassAnnotation]; !ok {
+		return nil, fmt.Errorf("required annotation %s is missing", opsecurity.SecretClassAnnotation)
 	}
 
 	return volumeContext, nil

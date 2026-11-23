@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zncdatadev/operator-go/pkg/constants"
+	opsecurity "github.com/zncdatadev/operator-go/pkg/security"
 	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	"github.com/zncdatadev/secret-operator/pkg/pod_info"
 	"github.com/zncdatadev/secret-operator/pkg/util"
@@ -88,21 +88,21 @@ func (k *K8sSearchBackend) getSecretList(ctx context.Context, matchingLabels map
 // matchingLabels returns the labels that should be used to search for the secret.
 // The labels are based on the secret class and the volume selector.
 func (k *K8sSearchBackend) matchingLabels(ctx context.Context, hasListenerNodeScope bool) (map[string]string, error) {
-	labels := map[string]string{constants.AnnotationSecretsClass: k.volumeContext.Class}
+	labels := map[string]string{opsecurity.SecretClassAnnotation: k.volumeContext.Class}
 
 	scope := k.volumeContext.Scope
 	pod := k.getPod()
 
 	if scope.Pod != "" {
-		labels[constants.LabelSecretsPod] = pod.GetName()
+		labels[opsecurity.LabelSecretsPod] = pod.GetName()
 	}
 
 	if scope.Services != nil {
-		labels[constants.LabelSecretsService] = strings.Join(scope.Services, ",")
+		labels[opsecurity.LabelSecretsService] = strings.Join(scope.Services, ",")
 	}
 
 	if scope.Node != "" || hasListenerNodeScope {
-		labels[constants.LabelSecretsNode] = pod.Spec.NodeName
+		labels[opsecurity.LabelSecretsNode] = pod.Spec.NodeName
 	}
 
 	listenerVolumesToListenerName, err := k.podInfo.GetScopedListenerVolumeNamesToListenerName(ctx)
@@ -149,7 +149,7 @@ func (k *K8sSearchBackend) GetQualifiedNodeNames(ctx context.Context) ([]string,
 	ndoes := make([]string, 0, len(objs.Items))
 	for _, obj := range objs.Items {
 		if obj.Annotations != nil {
-			if node, ok := obj.Annotations[constants.LabelSecretsNode]; ok {
+			if node, ok := obj.Annotations[opsecurity.LabelSecretsNode]; ok {
 				ndoes = append(ndoes, node)
 			}
 		}

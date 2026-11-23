@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zncdatadev/operator-go/pkg/constants"
+	opsecurity "github.com/zncdatadev/operator-go/pkg/security"
 )
 
 const (
@@ -56,20 +56,20 @@ func TestSecretVolumeContextToMap(t *testing.T) {
 				AutoTlsCertRestartBuffer: 5 * time.Minute,
 			},
 			want: map[string]string{
-				CSIStoragePodName:                               testPod,
-				CSIStoragePodNamespace:                          testNamespace,
-				CSIStoragePodUid:                                testUID,
-				CSIStorageServiceAccountName:                    testServiceAccount,
-				CSIStorageEphemeral:                             testEphemeral,
-				StorageKubernetesCSIProvisionerIdentity:         testProvisioner,
-				constants.AnnotationSecretsClass:                testClass,
-				constants.AnnotationSecretsScope:                "pod,node,service=my-service,listener-volume=my-listener-volume",
-				constants.AnnotationSecretsFormat:               string(SecretFormatTLSPEM),
-				constants.AnnotationSecretsPKCS12Password:       testPassword,
-				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
-				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
-				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
-				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
+				CSIStoragePodName:                                testPod,
+				CSIStoragePodNamespace:                           testNamespace,
+				CSIStoragePodUid:                                 testUID,
+				CSIStorageServiceAccountName:                     testServiceAccount,
+				CSIStorageEphemeral:                              testEphemeral,
+				StorageKubernetesCSIProvisionerIdentity:          testProvisioner,
+				opsecurity.SecretClassAnnotation:                 testClass,
+				opsecurity.SecretClassScopeAnnotation:            "pod,node,service=my-service,listener-volume=my-listener-volume",
+				opsecurity.AnnotationSecretsFormat:               string(SecretFormatTLSPEM),
+				opsecurity.AnnotationSecretsPKCS12Password:       testPassword,
+				opsecurity.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
+				opsecurity.AnnotationSecretsCertLifetime:         "24h0m0s",
+				opsecurity.AnnotationSecretsCertJitterFactor:     "0.100000",
+				opsecurity.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
 		},
 		{
@@ -81,7 +81,7 @@ func TestSecretVolumeContextToMap(t *testing.T) {
 				},
 			},
 			want: map[string]string{
-				constants.AnnotationSecretsScope: "node,listener-volume=my-listener-volume",
+				opsecurity.SecretClassScopeAnnotation: "node,listener-volume=my-listener-volume",
 			},
 		},
 	}
@@ -112,20 +112,20 @@ func TestNewvolumeContextFromMap(t *testing.T) {
 		{
 			name: "full",
 			parameters: map[string]string{
-				CSIStoragePodName:                               testPod,
-				CSIStoragePodNamespace:                          testNamespace,
-				CSIStoragePodUid:                                testUID,
-				CSIStorageServiceAccountName:                    testServiceAccount,
-				CSIStorageEphemeral:                             testEphemeral,
-				VolumeKubernetesStorageProvisioner:              testProvisioner,
-				constants.AnnotationSecretsClass:                testClass,
-				constants.AnnotationSecretsScope:                "pod,node,service=my-service,listener-volume=my-listener-volume",
-				constants.AnnotationSecretsFormat:               string(SecretFormatTLSPEM),
-				constants.AnnotationSecretsPKCS12Password:       testPassword,
-				constants.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
-				constants.AnnotationSecretCertLifeTime:          "24h0m0s",
-				constants.AnnotationSecretsCertJitterFactor:     "0.100000",
-				constants.AnnotationSecretsCertRestartBuffer:    "5m0s",
+				CSIStoragePodName:                                testPod,
+				CSIStoragePodNamespace:                           testNamespace,
+				CSIStoragePodUid:                                 testUID,
+				CSIStorageServiceAccountName:                     testServiceAccount,
+				CSIStorageEphemeral:                              testEphemeral,
+				VolumeKubernetesStorageProvisioner:               testProvisioner,
+				opsecurity.SecretClassAnnotation:                 testClass,
+				opsecurity.SecretClassScopeAnnotation:            "pod,node,service=my-service,listener-volume=my-listener-volume",
+				opsecurity.AnnotationSecretsFormat:               string(SecretFormatTLSPEM),
+				opsecurity.AnnotationSecretsPKCS12Password:       testPassword,
+				opsecurity.AnnotationSecretsKerberosServiceNames: "realm1,realm2",
+				opsecurity.AnnotationSecretsCertLifetime:         "24h0m0s",
+				opsecurity.AnnotationSecretsCertJitterFactor:     "0.100000",
+				opsecurity.AnnotationSecretsCertRestartBuffer:    "5m0s",
 			},
 			expected: &SecretVolumeContext{
 				Pod:                testPod,

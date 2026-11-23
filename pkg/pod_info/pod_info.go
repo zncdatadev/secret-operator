@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	operatorlistenersv1alpha1 "github.com/zncdatadev/operator-go/pkg/apis/listeners/v1alpha1"
-	"github.com/zncdatadev/operator-go/pkg/constants"
+	oplistener "github.com/zncdatadev/operator-go/pkg/listener"
 	"github.com/zncdatadev/secret-operator/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -236,7 +236,7 @@ func (p *PodInfo) fetchScopedListenerVolumeNamesToListenerName(ctx context.Conte
 			return nil, fmt.Errorf("failed to get PVC %s: %w", pvcName, err)
 		}
 
-		if listenerName, exists := pvc.Annotations[constants.AnnotationListenerName]; exists {
+		if listenerName, exists := pvc.Annotations[oplistener.AnnotationListenerName]; exists {
 			logger.V(1).Info("using listener name from annotation",
 				"listenerName", listenerName,
 				"pvc", pvcName,

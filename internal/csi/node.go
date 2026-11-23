@@ -18,7 +18,7 @@ import (
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/zncdatadev/operator-go/pkg/constants"
+	opconstant "github.com/zncdatadev/operator-go/pkg/constant"
 	secretsv1alpha1 "github.com/zncdatadev/secret-operator/api/v1alpha1"
 	secretbackend "github.com/zncdatadev/secret-operator/internal/csi/backend"
 
@@ -157,7 +157,7 @@ func (n *NodeServer) updatePod(ctx context.Context, pod *corev1.Pod, volumeID st
 	// get 16 bytes of volume tag, but it maybe cause collision vulnerability
 	volumeTag = volumeTag[:16]
 
-	annotationExpiresName := constants.PrefixLabelRestarterExpiresAt + hex.EncodeToString(volumeTag)
+	annotationExpiresName := opconstant.LabelRestarterExpiresAtPrefix + hex.EncodeToString(volumeTag)
 	expiresTimeStr := expiresTime.Format(time.RFC3339)
 	logger.V(1).Info("update pod annotation", "pod", pod.Name, "key", annotationExpiresName, "value", expiresTimeStr)
 

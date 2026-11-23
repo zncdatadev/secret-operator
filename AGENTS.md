@@ -47,7 +47,7 @@ Manages Kubernetes secret lifecycle and credential provisioning for the Kubedoop
 - Controllers in `internal/controller/`
 - CSI backends in `internal/csi/backend/`
 - CRDs use `v1alpha1` API version
-- Follows `operator-go` GenericReconciler pattern
+- Uses specialized controllers for platform resources
 - CSI driver implements Container Storage Interface spec for secret injection
 
 ## Dependencies
